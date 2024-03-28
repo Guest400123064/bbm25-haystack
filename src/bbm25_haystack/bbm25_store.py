@@ -81,7 +81,8 @@ class BetterBM25DocumentStore:
         self._index = {}
 
     def _tokenize(self, texts: Union[str, List[str]]) -> List[List[str]]:
-        """Tokenize input text using SentencePiece model.
+        """
+        Tokenize input text using SentencePiece model.
 
         The input text can either be a single string or a list of strings,
         such as a single user query or a group of raw document.
@@ -97,7 +98,8 @@ class BetterBM25DocumentStore:
         return self._sp_inst.encode(texts, out_type=str)
 
     def _compute_idf(self, tokens: List[str]) -> Dict[str, float]:
-        """Calculate the inverse document frequency for each token.
+        """
+        Calculate the inverse document frequency for each token.
 
         :param tokens: the tokens to calculate the IDF for.
         :type tokens: List[str]
@@ -117,7 +119,8 @@ class BetterBM25DocumentStore:
         idf: Dict[str, float],
         doc_ids: Optional[List[str]] = None,
     ) -> List[Tuple[Document, float]]:
-        """Calculate the BM25+ score for all documents in this index.
+        """
+        Calculate the BM25+ score for all documents in this index.
 
         :param idf: the IDF for each token.
         :type idf: Dict[str, float]
@@ -155,7 +158,8 @@ class BetterBM25DocumentStore:
         filters: Optional[Dict[str, Any]] = None,
         top_k: Optional[int] = None,
     ) -> List[Document]:
-        """Retrieve documents from the store using the given query.
+        """
+        Retrieve documents from the store using the given query.
 
         :param query: the query to search for.
         :type query: str
