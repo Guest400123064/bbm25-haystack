@@ -1,9 +1,10 @@
-# SPDX-FileCopyrightText: 2023-present John Doe <jd@example.com>
+# SPDX-FileCopyrightText: 2024-present Yuxuan Wang <wangy49@seas.upenn.edu>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any, Dict, Optional
+from typing import Dict, List, Optional, Any
 
-from haystack import component
+from haystack import component, default_from_dict, default_to_dict
+from haystack.dataclasses import Document
 
 from bbm25_haystack.bbm25_store import BetterBM25DocumentStore
 
@@ -11,17 +12,25 @@ from bbm25_haystack.bbm25_store import BetterBM25DocumentStore
 @component
 class BetterBM25Retriever:
     """
-    A component for retrieving documents from an ExampleDocumentStore.
+    A component for retrieving documents from an BetterBM25DocumentStore.
     """
 
-    def __init__(self, document_store: BetterBM25DocumentStore, filters: Optional[Dict[str, Any]] = None, top_k: int = 10):
+    def __init__(
+        self,
+        document_store: BetterBM25DocumentStore,
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        top_k: int = 10
+    ):
         """
-        Create an ExampleRetriever component. Usually you pass some basic configuration
-        parameters to the constructor.
+        Create an BetterBM25Retriever component.
 
         :param document_store: A Document Store object used to retrieve documents
+        :type document_store: BetterBM25DocumentStore
         :param filters: A dictionary with filters to narrow down the search space (default is None).
+        :type filters: Optional[Dict[str, Any]]
         :param top_k: The maximum number of documents to retrieve (default is 10).
+        :type top_k: int
 
         :raises ValueError: If the specified top_k is not > 0.
         """
@@ -29,11 +38,51 @@ class BetterBM25Retriever:
         self.top_k = top_k
         self.document_store = document_store
 
-    def run(self, _):
+    def run(
+        self,
+        query: str,
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        top_k: Optional[int] = None
+    ) -> Dict[str, List[Document]]:
         """
-        Run the Retriever on the given input data.
+        Run the Retriever on the given query.
 
-        :param data: The input data for the retriever. In this case, a list of queries.
+        :param query: The query to run the Retriever on.
+        :type query: str
+        :param filters: A dictionary with filters to narrow down the search space (default is None).
+        :type filters: Optional[Dict[str, Any]]
+        :param top_k: The maximum number of documents to retrieve (default is None).
+
         :return: The retrieved documents.
         """
-        return []  # FIXME
+        filters = filters or self.filters
+        top_k = top_k or self.top_k
+
+        docs = self.document_store._retrieval(query, filters=filters, top_k=top_k)
+        return {"documents": docs}
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serializes the component to a dictionary.
+
+        :return: dictionary with serialized data.
+        """
+        return default_to_dict(
+            self,
+            filters=self.filters,
+            top_k=self.top_k,
+            document_store=self.document_store.to_dict(),
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "BetterBM25Retriever":
+        """
+        Deserializes the component from a dictionary.
+
+        :param data: dictionary to deserialize from.
+        :returns: deserialized component.
+        """
+        doc_store_params = data["init_parameters"]["document_store"]
+        data["init_parameters"]["document_store"] = BetterBM25DocumentStore.from_dict(doc_store_params)
+        return default_from_dict(cls, data)

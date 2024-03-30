@@ -1,10 +1,37 @@
 # SPDX-FileCopyrightText: 2024-present Yuxuan Wang <wangy49@seas.upenn.edu>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import List, Any, Dict, Optional, Final
+from typing import List, Any, Dict, Callable, Optional, Final
+
+from functools import wraps
 
 from haystack.dataclasses import Document
 from haystack.errors import FilterError
+
+
+def apply_filters_to_document(
+    filters: Dict[str, Any],
+    document: Document
+) -> bool:
+    """
+    Apply filters to a document.
+
+    :param filters: The filters to apply to the document.
+    :type filters: Dict[str, Any]
+    :param document: The document to apply the filters to.
+    :type document: Document
+    
+    :return: True if the document passes the filters.
+    :rtype: bool
+    """
+    if filters is None:
+        return True
+
+    assert isinstance(filters, dict)
+    if not filters:
+        return True
+
+    return _run_comparison_condition(filters, document)
 
 
 def _get_document_field(document: Document, field: str) -> Optional[Any]:
@@ -26,9 +53,9 @@ def _get_document_field(document: Document, field: str) -> Optional[Any]:
     if r"." not in field:
         return getattr(document, field)
 
-    attr = document
-    for f in field.split(r"."):
-        attr = getattr(attr, f)
+    attr = document.meta
+    for f in field.split(r".")[1:]:
+        attr = attr.get(f)
         if attr is None:
             return None
     return attr
@@ -71,9 +98,9 @@ def _run_comparison_condition(
 
     field: str = condition["field"]
     value: Any = condition["value"]
-    operator = COMPARISON_OPERATORS[condition["operator"]]
+    comparator = COMPARISON_OPERATORS[condition["operator"]]
 
-    return operator(value, _get_document_field(document, field))
+    return comparator(_get_document_field(document, field), value)
 
 
 def _and(
@@ -138,8 +165,57 @@ def _not(
     return not _and(document, conditions)
 
 
-def _eq():
-    pass
+def _comparator_input_type_check_wrapper(
+    comparator: Callable[[Any, Any], bool]
+) -> Callable[[Any, Any], bool]:
+    """
+    A wrapper function to check the input types of the comparator function.
+    if the input types are not compatible with a comparison binary operator,
+    then a FilterError is raised.
+
+    :param comparator: The comparator function to wrap.
+    :type comparator: Callable[[Any, Any], bool]
+
+    :return: The wrapped comparator function.
+    :rtype: Callable[[Any, Any], bool]
+    """
+    @wraps(comparator)
+    def wrapper(dv: Any, fv: Any) -> bool:
+        if dv is None or fv is None:
+            return False
+
+        try:
+            return comparator(dv, fv)
+        except TypeError:
+            msg = (
+                f"Cannot compare document value of {type(dv)} type "
+                f"with filter value of {type(fv)} type."
+            )
+            raise FilterError(msg)
+
+    return wrapper
+
+
+def _eq(dv: Any, fv: Any) -> bool:
+    """Note that we do not apply the input check wrapper to
+    equality comparison too, which means `equal(None, None)`
+    return True."""
+    return dv == fv
+
+
+@_comparator_input_type_check_wrapper
+def _gt(dv: Any, fv: Any) -> bool:
+    return dv > fv
+
+
+@_comparator_input_type_check_wrapper
+def _geq(dv: Any, fv: Any) -> bool:
+    return dv >= fv
+
+
+@_comparator_input_type_check_wrapper
+def _in(dv: Any, fv: Any) -> bool:
+    return dv in fv
 
 
 LOGICAL_OPERATORS = {
@@ -149,4 +225,12 @@ LOGICAL_OPERATORS = {
 }
 
 COMPARISON_OPERATORS = {
+    "==": _eq,
+    "!=": lambda dv, fv: not _eq(dv, fv),
+    ">": _gt,
+    ">=": _geq,
+    "<": lambda dv, fv: not _geq(dv, fv),
+    "<=": lambda dv, fv: not _gt(dv, fv),
+    "in": _in,
+    "not_in": lambda dv, fv: not _in(dv, fv),
 }

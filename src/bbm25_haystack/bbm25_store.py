@@ -19,6 +19,8 @@ from haystack.document_stores.errors import (
 )
 from haystack.document_stores.types import DuplicatePolicy
 
+from bbm25_haystack.filters import apply_filters_to_document
+
 
 logger = logging.getLogger(__name__)
 
@@ -117,25 +119,21 @@ class BetterBM25DocumentStore:
     def _compute_all_bm25plus(
         self,
         idf: Dict[str, float],
-        doc_ids: Optional[List[str]] = None,
+        documents: List[Document],
     ) -> List[Tuple[Document, float]]:
         """
         Calculate the BM25+ score for all documents in this index.
 
         :param idf: the IDF for each token.
         :type idf: Dict[str, float]
-        :param doc_ids: the document IDs to calculate the BM25+ score for.
-        :type doc_ids: Optional[List[str]
+        :param documents: the pool of documents to calculate the BM25+ score for.
+        :type documents: List[Document]
 
         :return: the BM25+ scores for all documents.
         :rtype: List[float]
         """
         f = lambda t, d: d.get(t, 0)
-        store = (
-            self._index
-            if doc_ids is None
-            else {k: self._index[k] for k in doc_ids}
-        )
+        store = {doc.id: self._index[doc.id] for doc in documents}
 
         scores = [
             (
@@ -155,6 +153,7 @@ class BetterBM25DocumentStore:
     def _retrieval(
         self,
         query: str,
+        *,
         filters: Optional[Dict[str, Any]] = None,
         top_k: Optional[int] = None,
     ) -> List[Document]:
@@ -171,10 +170,10 @@ class BetterBM25DocumentStore:
         :return: the top-k documents that match the query.
         :rtype: List[Document]
         """
-        doc_ids = self.filter_documents(filters)
+        documents = self.filter_documents(filters)
 
         idf = self._compute_idf(self._tokenize(query)[0])
-        sim = self._compute_all_bm25plus(idf, doc_ids)
+        sim = self._compute_all_bm25plus(idf, documents)
 
         key = lambda x: x[1]
         if top_k is None:
@@ -182,7 +181,7 @@ class BetterBM25DocumentStore:
         else:
             top = heapq.nlargest(top_k, sim, key=key)
 
-        return [doc for doc, _ in top]
+        return list(zip(*top))[0]
 
     def count_documents(self) -> int:
         """
@@ -206,12 +205,13 @@ class BetterBM25DocumentStore:
         :return: the list of documents that match the given filters.
         :rtype: List[Document]
         """
-        return None
+        return [doc[0] for doc in self._index.values()
+                if apply_filters_to_document(filters, doc[0])]
 
     def write_documents(
         self,
         documents: List[Document],
-        policy: DuplicatePolicy = DuplicatePolicy.NONE,
+        policy: DuplicatePolicy = DuplicatePolicy.FAIL,
     ) -> int:
         """
         Writes (or overwrites) documents into the store.
@@ -233,6 +233,10 @@ class BetterBM25DocumentStore:
         n_written = 0
 
         for doc in documents:
+            if not isinstance(doc, Document):
+                msg = f"Expected document type, got '{doc}' of type '{type(doc)}'."
+                raise ValueError(msg)
+
             if doc.id in self._index.keys():
                 if policy == DuplicatePolicy.SKIP:
                     continue
@@ -241,12 +245,10 @@ class BetterBM25DocumentStore:
                     raise DuplicateDocumentError(msg)
 
                 # Overwrite if exists; delete first to keep the statistics consistent
-                logger.debug(
-                    f"Document '{doc.id}' already exists in the store, overwriting."
-                )
+                logger.debug(f"Document '{doc.id}' already exists in the store, overwriting.")
                 self.delete_documents([doc.id])
 
-            tokens = self._tokenize(doc.content)[0]
+            tokens = self._tokenize(doc.content or "")[0]
 
             self._freq_doc.update(set(tokens))
             self._avg_doc_len = (
@@ -283,22 +285,24 @@ class BetterBM25DocumentStore:
         for doc_id in document_ids:
             try:
                 doc, freq, doc_len, _ = self._index.pop(doc_id)
-                assert (
-                    doc.id == doc_id
-                ), f"Unexpected document ID mismatch: {doc_id} != {doc.id}"
+
+                self._freq_doc.subtract(Counter(freq.keys()))
+
+                if len(self._index) == 0:
+                    self._avg_doc_len = 0
+                else:
+                    self._avg_doc_len = (
+                        self._avg_doc_len * (len(self._index) + 1) - doc_len
+                    ) / len(self._index)
+
+                logger.debug(f"Document '{doc_id}' deleted from store.")
+                n_removal += 1
+
+                msg = f"Unexpected document ID mismatch: {doc_id} != {doc.id}"
+                assert doc.id == doc_id, msg
             except KeyError as _:
-                msg = (
-                    f"Document with ID '{doc_id}' not found, cannot delete it."
-                )
+                msg = f"Document with ID '{doc_id}' not found, cannot delete it."
                 raise MissingDocumentError(msg)
-
-            self._freq_doc.subtract(Counter(freq.keys()))
-            self._avg_doc_len = (
-                self._avg_doc_len * (len(self._index) + 1) - doc_len
-            ) / len(self._index)
-
-            logger.debug(f"Document '{doc_id}' deleted from store.")
-            n_removal += 1
 
         return n_removal
 

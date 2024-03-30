@@ -1,23 +1,75 @@
-# SPDX-FileCopyrightText: 2023-present John Doe <jd@example.com>
+# SPDX-FileCopyrightText: 2024-present Yuxuan Wang <wangy49@seas.upenn.edu>
 #
 # SPDX-License-Identifier: Apache-2.0
 import pytest
-from haystack.testing.document_store import DocumentStoreBaseTests
 
-from example_store.document_store import ExampleDocumentStore
+from haystack.dataclasses import Document
+from haystack.document_stores.types import DocumentStore, DuplicatePolicy
+from haystack.document_stores.errors import (
+    DuplicateDocumentError,
+    MissingDocumentError,
+)
+from haystack.testing.document_store import (
+    CountDocumentsTest,
+    WriteDocumentsTest,
+    DeleteDocumentsTest,
+    DocumentStoreBaseTests,
+)
+
+from bbm25_haystack.bbm25_store import BetterBM25DocumentStore
 
 
-@pytest.mark.skip("This is an example Document Store")
+@pytest.mark.integration
 class TestDocumentStore(DocumentStoreBaseTests):
-    """
-    Common test cases will be provided by `DocumentStoreBaseTests` but
-    you can add more to this class.
-    """
+    """Common test cases will be provided by `DocumentStoreBaseTests`."""
 
     @pytest.fixture
-    def docstore(self) -> ExampleDocumentStore:
+    def document_store(self) -> BetterBM25DocumentStore:
+        return BetterBM25DocumentStore()
+
+    def test_write_documents(self, document_store: DocumentStore):
+        docs = [Document(id="1")]
+        assert document_store.write_documents(docs) == 1
+        with pytest.raises(DuplicateDocumentError):
+            document_store.write_documents(docs, DuplicatePolicy.FAIL)
+
+        document_store.write_documents(
+            [Document(id="1"), Document(id="2")],
+            DuplicatePolicy.OVERWRITE
+        )
+        assert document_store.count_documents() == 2
+
+    def test_delete_documents_empty_document_store(self, document_store):
         """
-        This is the most basic requirement for the child class: provide
-        an instance of this document store so the base class can use it.
+        This is different from the original implementation.
+
+        One expects a MissingDocumentError to be raised when deleting a
+        non-existing document, which is more intuitive.
         """
-        return ExampleDocumentStore()
+        with pytest.raises(MissingDocumentError):
+            document_store.delete_documents(["non_existing_id"])
+
+    def test_delete_documents_non_existing_document(self, document_store):
+        """
+        This is different from the original implementation.
+
+        One expects a MissingDocumentError to be raised when deleting a
+        non-existing document, which is more intuitive.
+        """
+        document_store.write_documents([Document(id="42")])
+        with pytest.raises(MissingDocumentError):
+            document_store.delete_documents(["non_existing_id"])
+
+        assert document_store.count_documents() == 1
+
+    def test_bm25_retrieval(self, document_store):
+        docs = [
+            Document(content="Hello world"),
+            Document(content="Haystack supports multiple languages")
+        ]
+        document_store.write_documents(docs)
+
+        results = document_store._retrieval(query="What languages?", top_k=1)
+
+        assert len(results) == 1
+        assert results[0].content == "Haystack supports multiple languages"
