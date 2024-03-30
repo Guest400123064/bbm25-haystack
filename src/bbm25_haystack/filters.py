@@ -218,13 +218,13 @@ def _in(dv: Any, fv: Any) -> bool:
     return dv in fv
 
 
-LOGICAL_OPERATORS = {
+LOGICAL_OPERATORS: Final = {
     "NOT": _not,
     "AND": _and,
     "OR": _or,
 }
 
-COMPARISON_OPERATORS = {
+COMPARISON_OPERATORS: Final = {
     "==": _eq,
     "!=": lambda dv, fv: not _eq(dv, fv),
     ">": _gt,
