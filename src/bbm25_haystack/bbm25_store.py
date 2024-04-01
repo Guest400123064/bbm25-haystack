@@ -24,9 +24,11 @@ from bbm25_haystack.filters import apply_filters_to_document
 
 logger = logging.getLogger(__name__)
 
-
-DIR_THIS: Final = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_SP_MODEL: Final = os.path.join(DIR_THIS, "default.model")
+ 
+DEFAULT_SP_MODEL: Final = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "default.model"
+)
 
 
 class BetterBM25DocumentStore:
@@ -171,6 +173,8 @@ class BetterBM25DocumentStore:
         :rtype: List[Document]
         """
         documents = self.filter_documents(filters)
+        if not documents:
+            return []
 
         idf = self._compute_idf(self._tokenize(query)[0])
         sim = self._compute_all_bm25plus(idf, documents)
