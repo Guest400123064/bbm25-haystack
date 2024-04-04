@@ -6,7 +6,7 @@ import logging
 import math
 import os
 from collections import Counter
-from typing import Any, Callable, Final, Optional, TypeAlias, Union
+from typing import Any, Final, Optional, TypeAlias, Union
 
 from haystack import Document, default_from_dict, default_to_dict
 from haystack.document_stores.errors import (
@@ -25,9 +25,7 @@ DEFAULT_SP_MODEL: Final = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "default.model"
 )
 
-IndexType: TypeAlias = dict[
-    str, tuple[Document, dict[str, int], int, Callable[[float], float]]
-]
+IndexType: TypeAlias = dict[str, tuple[Document, dict[str, int], int]]
 
 
 class BetterBM25DocumentStore:
@@ -100,6 +98,21 @@ class BetterBM25DocumentStore:
             texts = [texts]
         return self._sp_inst.encode(texts, out_type=str)
 
+    def _compute_damping(self, doc_len: int) -> float:
+        """The damping factor within the term-frequency component.
+
+        This damping factor controls how document length shrinks
+        the increment of term frequency. The longer the document,
+        the less the term frequency can increase final matching score.
+
+        :param doc_len: the number of tokens in a document.
+        :type doc_len: int
+
+        :return: the damping factor.
+        :rtype: float
+        """
+        return self.k * (1 - self.b + self.b * doc_len / self._avg_doc_len)
+
     def _compute_idf(self, tokens: list[str]) -> dict[str, float]:
         """
         Calculate the inverse document frequency for each token.
@@ -133,22 +146,23 @@ class BetterBM25DocumentStore:
         :return: the BM25+ scores for all documents.
         :rtype: list[tuple[Document, float]]
         """
-        f = lambda t, d: d.get(t, 0.0)
-        store = {doc.id: self._index[doc.id] for doc in documents}
 
+        def bm25(token: str, freq: dict[str, int], doc_len: int) -> float:
+            """
+            Complete BM25+ formula for a single token.
+            """
+            damp = self._compute_damping(doc_len)  # Repeated compute here
+            freq_term = freq.get(token, 0.0)
+            freq_norm = freq_term / (freq_term + damp) + self.delta
+            return idf[token] * freq_norm
+
+        store = {doc.id: self._index[doc.id] for doc in documents}
         scores = [
             (
                 doc,
-                sum(
-                    idf[token]
-                    * (
-                        f(token, freq) / (f(token, freq) + norm(self._avg_doc_len))
-                        + self.delta
-                    )
-                    for token in idf.keys()
-                ),
+                sum(bm25(token, freq, doc_len) for token in idf.keys()),
             )
-            for doc, freq, _, norm in store.values()
+            for doc, freq, doc_len in store.values()
         ]
         return scores
 
@@ -209,9 +223,9 @@ class BetterBM25DocumentStore:
         :rtype: list[Document]
         """
         return [
-            doc[0]
-            for doc in self._index.values()
-            if apply_filters_to_document(filters, doc[0])
+            doc
+            for doc, _, _ in self._index.values()
+            if apply_filters_to_document(filters, doc)
         ]
 
     def write_documents(
@@ -238,7 +252,6 @@ class BetterBM25DocumentStore:
         :rtype: int
         """
         n_written = 0
-
         for doc in documents:
             if not isinstance(doc, Document):
                 msg = f"Expected document type, got '{doc}' of type '{type(doc)}'."
@@ -258,17 +271,12 @@ class BetterBM25DocumentStore:
                 self.delete_documents([doc.id])
 
             tokens = self._tokenize(doc.content or "")[0]
-            doc_len = len(tokens)
 
+            self._index[doc.id] = (doc, Counter(tokens), len(tokens))
             self._freq_doc.update(set(tokens))
             self._avg_doc_len = (len(tokens) + self._avg_doc_len * len(self._index)) / (
                 len(self._index) + 1
             )
-
-            def tf(adl: float, dl: int = doc_len) -> float:
-                return self.k * (1 - self.b + self.b * dl / adl)
-
-            self._index[doc.id] = (doc, Counter(tokens), doc_len, tf)
 
             logger.debug(f"Document '{doc.id}' written to store.")
             n_written += 1
@@ -291,11 +299,9 @@ class BetterBM25DocumentStore:
         :rtype: int
         """
         n_removal = 0
-
         for doc_id in document_ids:
             try:
-                _, freq, doc_len, _ = self._index.pop(doc_id)
-
+                _, freq, doc_len = self._index.pop(doc_id)
                 self._freq_doc.subtract(Counter(freq.keys()))
                 try:
                     self._avg_doc_len = (
