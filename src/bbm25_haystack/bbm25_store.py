@@ -6,7 +6,7 @@ import logging
 import math
 import os
 from collections import Counter
-from typing import Any, Final, Optional, TypeAlias, Union
+from typing import Any, Final, Optional, Union
 
 from haystack import Document, default_from_dict, default_to_dict
 from haystack.document_stores.errors import (
@@ -24,8 +24,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_SP_MODEL: Final = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "default.model"
 )
-
-IndexType: TypeAlias = dict[str, tuple[Document, dict[str, int], int]]
 
 
 class BetterBM25DocumentStore:
@@ -79,7 +77,7 @@ class BetterBM25DocumentStore:
         self._avg_doc_len: float = 0.0
         self._freq_doc: Counter = Counter()
 
-        self._index: IndexType = {}
+        self._index: dict[str, tuple[Document, dict[str, int], int]] = {}
 
     def _tokenize(self, texts: Union[str, list[str]]) -> list[list[str]]:
         """
