@@ -66,12 +66,12 @@ dependencies = [
 [tool.hatch.envs.lint.scripts]
 typing = "mypy --install-types --non-interactive {args:src/bbm25_haystack tests}"
 style = [
-  "ruff {args:.}",
+  "ruff {args:check .}",
   "black --check --diff {args:.}",
 ]
 fmt = [
   "black {args:.}",
-  "ruff --fix {args:.}",
+  "ruff {args:check .} --fix",
   "style",
 ]
 all = [
@@ -84,12 +84,12 @@ allow-direct-references = true
 
 [tool.black]
 target-version = ["py39"]
-line-length = 120
+line-length = 90
 skip-string-normalization = true
 
 [tool.ruff]
 target-version = "py39"
-line-length = 120
+line-length = 90
 select = [
   "A",
   "ARG",
@@ -126,6 +126,8 @@ ignore = [
   "S105", "S106", "S107",
   # Ignore complexity
   "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+  # Ignore usage of `lambda` expression
+  "E731",
 ]
 unfixable = [
   # Don't touch unused imports

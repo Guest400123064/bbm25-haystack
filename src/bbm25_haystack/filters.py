@@ -1,33 +1,30 @@
 # SPDX-FileCopyrightText: 2024-present Yuxuan Wang <wangy49@seas.upenn.edu>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import List, Any, Dict, Callable, Optional, Final
-
 from functools import wraps
+from typing import Any, Callable, Final, Optional
 
 from haystack.dataclasses import Document
 from haystack.errors import FilterError
 
 
 def apply_filters_to_document(
-    filters: Dict[str, Any],
-    document: Document
+    filters: Optional[dict[str, Any]], document: Document
 ) -> bool:
     """
     Apply filters to a document.
 
     :param filters: The filters to apply to the document.
-    :type filters: Dict[str, Any]
+    :type filters: dict[str, Any]
     :param document: The document to apply the filters to.
     :type document: Document
-    
+
     :return: True if the document passes the filters.
     :rtype: bool
     """
     if filters is None:
         return True
 
-    assert isinstance(filters, dict)
     if not filters:
         return True
 
@@ -61,12 +58,8 @@ def _get_document_field(document: Document, field: str) -> Optional[Any]:
     return attr
 
 
-def _run_logical_condition(
-    condition: Dict[str, Any],
-    document: Document
-) -> bool:
-    """
-    """
+def _run_logical_condition(condition: dict[str, Any], document: Document) -> bool:
+    """ """
     if "operator" not in condition:
         msg = "Logical condition must have an 'operator' key."
         raise FilterError(msg)
@@ -80,12 +73,8 @@ def _run_logical_condition(
     return reducer(document, conditions)
 
 
-def _run_comparison_condition(
-    condition: Dict[str, Any],
-    document: Document
-) -> bool:
-    """
-    """
+def _run_comparison_condition(condition: dict[str, Any], document: Document) -> bool:
+    """ """
     if "field" not in condition:
         return _run_logical_condition(condition, document)
 
@@ -103,48 +92,37 @@ def _run_comparison_condition(
     return comparator(_get_document_field(document, field), value)
 
 
-def _and(
-    document: Document,
-    conditions: List[Dict[str, Any]]
-) -> bool:
+def _and(document: Document, conditions: list[dict[str, Any]]) -> bool:
     """
     Return True if all conditions are met.
 
     :param document: The document to check the conditions against.
     :type document: Document
     :param conditions: The conditions to check against the document.
-    :type conditions: List[Dict[str, Any]]
+    :type conditions: list[dict[str, Any]]
 
     :return: True if not all conditions are met.
     :rtype: bool
     """
-    return all(_run_comparison_condition(condition, document)
-               for condition in conditions)
+    return all(_run_comparison_condition(condition, document) for condition in conditions)
 
 
-def _or(
-    document: Document,
-    conditions: List[Dict[str, Any]]
-) -> bool:
+def _or(document: Document, conditions: list[dict[str, Any]]) -> bool:
     """
     Return True if any condition is met.
 
     :param document: The document to check the conditions against.
     :type document: Document
     :param conditions: The conditions to check against the document.
-    :type conditions: List[Dict[str, Any]]
+    :type conditions: list[dict[str, Any]]
 
     :return: True if not all conditions are met.
     :rtype: bool
     """
-    return any(_run_comparison_condition(condition, document)
-               for condition in conditions)
+    return any(_run_comparison_condition(condition, document) for condition in conditions)
 
 
-def _not(
-    document: Document,
-    conditions: List[Dict[str, Any]]
-) -> bool:
+def _not(document: Document, conditions: list[dict[str, Any]]) -> bool:
     """
     Return True if not all conditions are met.
 
@@ -157,7 +135,7 @@ def _not(
     :param document: The document to check the conditions against.
     :type document: Document
     :param conditions: The conditions to check against the document.
-    :type conditions: List[Dict[str, Any]]
+    :type conditions: list[dict[str, Any]]
 
     :return: True if not all conditions are met.
     :rtype: bool
@@ -179,6 +157,7 @@ def _comparator_input_type_check_wrapper(
     :return: The wrapped comparator function.
     :rtype: Callable[[Any, Any], bool]
     """
+
     @wraps(comparator)
     def wrapper(dv: Any, fv: Any) -> bool:
         if dv is None or fv is None:
@@ -186,12 +165,12 @@ def _comparator_input_type_check_wrapper(
 
         try:
             return comparator(dv, fv)
-        except TypeError:
+        except TypeError as exc:
             msg = (
                 f"Cannot compare document value of {type(dv)} type "
                 f"with filter value of {type(fv)} type."
             )
-            raise FilterError(msg)
+            raise FilterError(msg) from exc
 
     return wrapper
 
@@ -232,5 +211,5 @@ COMPARISON_OPERATORS: Final = {
     "<": lambda dv, fv: not _geq(dv, fv),
     "<=": lambda dv, fv: not _gt(dv, fv),
     "in": _in,
-    "not_in": lambda dv, fv: not _in(dv, fv),
+    "not in": lambda dv, fv: not _in(dv, fv),
 }

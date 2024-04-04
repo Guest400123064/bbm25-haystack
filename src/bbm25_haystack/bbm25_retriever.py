@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2024-present Yuxuan Wang <wangy49@seas.upenn.edu>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Dict, List, Optional, Any
+from typing import Any, Optional
 
 from haystack import component, default_from_dict, default_to_dict
 from haystack.dataclasses import Document
@@ -19,16 +19,17 @@ class BetterBM25Retriever:
         self,
         document_store: BetterBM25DocumentStore,
         *,
-        filters: Optional[Dict[str, Any]] = None,
-        top_k: int = 10
+        filters: Optional[dict[str, Any]] = None,
+        top_k: int = 10,
     ):
         """
         Create an BetterBM25Retriever component.
 
         :param document_store: A Document Store object used to retrieve documents
         :type document_store: BetterBM25DocumentStore
-        :param filters: A dictionary with filters to narrow down the search space (default is None).
-        :type filters: Optional[Dict[str, Any]]
+        :param filters: A dictionary with filters to narrow down the search space
+            (default is None).
+        :type filters: Optional[dict[str, Any]]
         :param top_k: The maximum number of documents to retrieve (default is 10).
         :type top_k: int
 
@@ -42,16 +43,17 @@ class BetterBM25Retriever:
         self,
         query: str,
         *,
-        filters: Optional[Dict[str, Any]] = None,
-        top_k: Optional[int] = None
-    ) -> Dict[str, List[Document]]:
+        filters: Optional[dict[str, Any]] = None,
+        top_k: Optional[int] = None,
+    ) -> dict[str, list[Document]]:
         """
         Run the Retriever on the given query.
 
         :param query: The query to run the Retriever on.
         :type query: str
-        :param filters: A dictionary with filters to narrow down the search space (default is None).
-        :type filters: Optional[Dict[str, Any]]
+        :param filters: A dictionary with filters to narrow down the search space
+            (default is None).
+        :type filters: Optional[dict[str, Any]]
         :param top_k: The maximum number of documents to retrieve (default is None).
 
         :return: The retrieved documents.
@@ -62,7 +64,7 @@ class BetterBM25Retriever:
         docs = self.document_store._retrieval(query, filters=filters, top_k=top_k)
         return {"documents": docs}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the component to a dictionary.
 
@@ -76,7 +78,7 @@ class BetterBM25Retriever:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BetterBM25Retriever":
+    def from_dict(cls, data: dict[str, Any]) -> "BetterBM25Retriever":
         """
         Deserializes the component from a dictionary.
 
@@ -84,5 +86,7 @@ class BetterBM25Retriever:
         :returns: deserialized component.
         """
         doc_store_params = data["init_parameters"]["document_store"]
-        data["init_parameters"]["document_store"] = BetterBM25DocumentStore.from_dict(doc_store_params)
+        data["init_parameters"]["document_store"] = BetterBM25DocumentStore.from_dict(
+            doc_store_params
+        )
         return default_from_dict(cls, data)

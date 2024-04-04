@@ -2,17 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 import pytest
-
 from haystack.dataclasses import Document
-from haystack.document_stores.types import DocumentStore, DuplicatePolicy
 from haystack.document_stores.errors import (
     DuplicateDocumentError,
     MissingDocumentError,
 )
+from haystack.document_stores.types import DocumentStore, DuplicatePolicy
 from haystack.testing.document_store import (
-    CountDocumentsTest,
-    WriteDocumentsTest,
-    DeleteDocumentsTest,
     DocumentStoreBaseTests,
 )
 
@@ -34,8 +30,7 @@ class TestDocumentStore(DocumentStoreBaseTests):
             document_store.write_documents(docs, DuplicatePolicy.FAIL)
 
         document_store.write_documents(
-            [Document(id="1"), Document(id="2")],
-            DuplicatePolicy.OVERWRITE
+            [Document(id="1"), Document(id="2")], DuplicatePolicy.OVERWRITE
         )
         assert document_store.count_documents() == 2
 
@@ -65,7 +60,7 @@ class TestDocumentStore(DocumentStoreBaseTests):
     def test_bm25_retrieval(self, document_store):
         docs = [
             Document(content="Hello world"),
-            Document(content="Haystack supports multiple languages")
+            Document(content="Haystack supports multiple languages"),
         ]
         document_store.write_documents(docs)
 
