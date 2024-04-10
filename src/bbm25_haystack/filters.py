@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2024-present Yuxuan Wang <wangy49@seas.upenn.edu>
 #
 # SPDX-License-Identifier: Apache-2.0
+from collections.abc import Iterable
 from functools import wraps
 from typing import Any, Callable, Final, Optional
 
+import pandas as pd
 from haystack.dataclasses import Document
 from haystack.errors import FilterError
 
@@ -22,12 +24,8 @@ def apply_filters_to_document(
     :return: True if the document passes the filters.
     :rtype: bool
     """
-    if filters is None:
+    if filters is None or not filters:
         return True
-
-    if not filters:
-        return True
-
     return _run_comparison_condition(filters, document)
 
 
@@ -37,7 +35,8 @@ def _get_document_field(document: Document, field: str) -> Optional[Any]:
 
     If the field is not found within the document then, instead of
     raising an error, `None` is returned. Note that here we do not
-    support '.meta' prefix for legacy compatibility any more.
+    implicitly add 'meta' prefix for fields that are not a direct
+    attribute of the document, not supporting legacy behavior anymore.
 
     :param document: The document to get the field value from.
     :type document: Document
@@ -47,11 +46,11 @@ def _get_document_field(document: Document, field: str) -> Optional[Any]:
     :return: The value of the field in the document.
     :rtype: Optional[Any]
     """
-    if r"." not in field:
+    if "." not in field:
         return getattr(document, field)
 
     attr = document.meta
-    for f in field.split(r".")[1:]:
+    for f in field.split(".")[1:]:
         attr = attr.get(f)
         if attr is None:
             return None
@@ -59,7 +58,6 @@ def _get_document_field(document: Document, field: str) -> Optional[Any]:
 
 
 def _run_logical_condition(condition: dict[str, Any], document: Document) -> bool:
-    """ """
     if "operator" not in condition:
         msg = "Logical condition must have an 'operator' key."
         raise FilterError(msg)
@@ -74,7 +72,6 @@ def _run_logical_condition(condition: dict[str, Any], document: Document) -> boo
 
 
 def _run_comparison_condition(condition: dict[str, Any], document: Document) -> bool:
-    """ """
     if "field" not in condition:
         return _run_logical_condition(condition, document)
 
@@ -119,7 +116,7 @@ def _or(document: Document, conditions: list[dict[str, Any]]) -> bool:
     :return: True if not all conditions are met.
     :rtype: bool
     """
-    return any(_run_comparison_condition(condition, document) for condition in conditions)
+    return any(_run_comparison_condition(cond, document) for cond in conditions)
 
 
 def _not(document: Document, conditions: list[dict[str, Any]]) -> bool:
@@ -143,13 +140,16 @@ def _not(document: Document, conditions: list[dict[str, Any]]) -> bool:
     return not _and(document, conditions)
 
 
-def _comparator_input_type_check_wrapper(
+def _check_comparator_inputs(
     comparator: Callable[[Any, Any], bool]
 ) -> Callable[[Any, Any], bool]:
     """
-    A wrapper function to check the input types of the comparator function.
-    if the input types are not compatible with a comparison binary operator,
-    then a FilterError is raised.
+    A decorator to check and preprocess input attribute values.
+
+    ALL COMPARISON OPERATORS SHOULD BE WRAPPED WITH THIS DECORATOR.
+    because a `False` may be returned by both input validation and
+    the actual comparison. This decorator ensures that the comparison
+    function is only called if the input values are valid.
 
     :param comparator: The comparator function to wrap.
     :type comparator: Callable[[Any, Any], bool]
@@ -159,7 +159,23 @@ def _comparator_input_type_check_wrapper(
     """
 
     @wraps(comparator)
-    def wrapper(dv: Any, fv: Any) -> bool:
+    def _wrapper(dv: Any, fv: Any) -> bool:
+
+        # I think allowing comparison between DataFrames would
+        # be a really bad idea because it would create unexpected
+        # behavior, but I am open to discussion on this.
+        if isinstance(dv, pd.DataFrame) or isinstance(fv, pd.DataFrame):
+            msg = (
+                "Cannot compare DataFrames. Please convert them to "
+                "simpler data structures before comparing."
+            )
+            raise FilterError(msg)
+
+        # I think comparison between missing values is ambiguous,
+        # but again, I am open to discussion on this. Here I choose
+        # to return False if either value is None because from a
+        # logical perspective, we really cannot say anything about
+        # the comparison between a missing value and a non-missing.
         if dv is None or fv is None:
             return False
 
@@ -172,44 +188,90 @@ def _comparator_input_type_check_wrapper(
             )
             raise FilterError(msg) from exc
 
-    return wrapper
+    return _wrapper
 
 
+@_check_comparator_inputs
 def _eq(dv: Any, fv: Any) -> bool:
-    """Note that we do not apply the input check wrapper to
-    equality comparison too, which means `equal(None, None)`
-    return True."""
+    """
+    Conservative implementation of equal comparison.
+
+    There are two major differences between this implementation
+    and the default Haystack filter implementation:
+        - If both values are None, we return False, instead of True.
+        - If any value is a DataFrame, we raise an error, instead
+            of converting them to JSON.
+    """
     return dv == fv
 
 
-@_comparator_input_type_check_wrapper
+@_check_comparator_inputs
+def _ne(dv: Any, fv: Any) -> bool:
+    return not _eq(dv, fv)
+
+
+@_check_comparator_inputs
 def _gt(dv: Any, fv: Any) -> bool:
+    """
+    A more liberal implementation with less surprises.
+
+    Simply compare the two values with default Python comparison.
+    We do not perform any conversion here to have the behavior
+    more predictable. If we want to compare the dates, we should
+    just convert the document value and filter value explicitly
+    to dates before comparing them.
+    """
     return dv > fv
 
 
-@_comparator_input_type_check_wrapper
-def _geq(dv: Any, fv: Any) -> bool:
-    return dv >= fv
+@_check_comparator_inputs
+def _lt(dv: Any, fv: Any) -> bool:
+    return dv < fv
 
 
-@_comparator_input_type_check_wrapper
+@_check_comparator_inputs
+def _gte(dv: Any, fv: Any) -> bool:
+    return _gt(dv, fv) or _eq(dv, fv)
+
+
+@_check_comparator_inputs
+def _lte(dv: Any, fv: Any) -> bool:
+    return _lt(dv, fv) or _eq(dv, fv)
+
+
+@_check_comparator_inputs
 def _in(dv: Any, fv: Any) -> bool:
-    return dv in fv
+    """
+    Allowing iterable filter values not just lists.
+
+    This implementation permits a larger set of filter values
+    such as tuples, sets, and other iterable objects.
+    """
+    if not isinstance(fv, Iterable):
+        msg = "Filter value must be an iterable for 'in' comparison."
+        raise FilterError(msg)
+
+    return any(_eq(dv, v) for v in fv)
+
+
+@_check_comparator_inputs
+def _nin(dv: Any, fv: Any) -> bool:
+    return not _in(dv, fv)
 
 
 LOGICAL_OPERATORS: Final = {
     "NOT": _not,
     "AND": _and,
-    "OR": _or,
+    "OR": _or
 }
 
 COMPARISON_OPERATORS: Final = {
     "==": _eq,
-    "!=": lambda dv, fv: not _eq(dv, fv),
+    "!=": _ne,
     ">": _gt,
-    ">=": _geq,
-    "<": lambda dv, fv: not _geq(dv, fv),
-    "<=": lambda dv, fv: not _gt(dv, fv),
+    "<": _lt,
+    ">=": _gte,
+    "<=": _lte,
     "in": _in,
-    "not in": lambda dv, fv: not _in(dv, fv),
+    "not in": _nin
 }
