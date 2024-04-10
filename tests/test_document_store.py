@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: 2024-present Yuxuan Wang <wangy49@seas.upenn.edu>
 #
 # SPDX-License-Identifier: Apache-2.0
-import pytest
 import pandas as pd
+import pytest
 from haystack import Document
-from haystack.errors import FilterError
 from haystack.document_stores.errors import (
     DuplicateDocumentError,
     MissingDocumentError,
@@ -13,6 +12,7 @@ from haystack.document_stores.types import (
     DocumentStore,
     DuplicatePolicy,
 )
+from haystack.errors import FilterError
 from haystack.testing.document_store import (
     DocumentStoreBaseTests,
 )
@@ -79,52 +79,78 @@ class TestDocumentStore(DocumentStoreBaseTests):
     # None, DataFrame, and Iterables.
     def test_comparison_equal_with_none(self, document_store, filterable_docs):
         document_store.write_documents(filterable_docs)
-        result = document_store.filter_documents(filters={"field": "meta.number", "operator": "==", "value": None})
+        result = document_store.filter_documents(
+            filters={"field": "meta.number", "operator": "==", "value": None}
+        )
         self.assert_documents_are_equal(result, [])
 
     def test_comparison_not_equal_with_none(self, document_store, filterable_docs):
         document_store.write_documents(filterable_docs)
-        result = document_store.filter_documents(filters={"field": "meta.number", "operator": "!=", "value": None})
+        result = document_store.filter_documents(
+            filters={"field": "meta.number", "operator": "!=", "value": None}
+        )
         self.assert_documents_are_equal(result, [])
 
     def test_comparison_not_equal(self, document_store, filterable_docs):
         """Comparison with missing values will always return False. So the ground
         truth is that we should only return documents with a non-missing value."""
         document_store.write_documents(filterable_docs)
-        result = document_store.filter_documents({"field": "meta.number", "operator": "!=", "value": 100})
+        result = document_store.filter_documents(
+            {"field": "meta.number", "operator": "!=", "value": 100}
+        )
         self.assert_documents_are_equal(
             result,
-            [d for d in filterable_docs 
-             if d.meta.get("number") != 100 and "number" in d.meta]
+            [
+                d
+                for d in filterable_docs
+                if d.meta.get("number") != 100 and "number" in d.meta
+            ],
         )
 
     def test_comparison_not_in(self, document_store, filterable_docs):
         """Similar to the test above."""
         document_store.write_documents(filterable_docs)
-        result = document_store.filter_documents({"field": "meta.number", "operator": "not in", "value": [9, 10]})
+        result = document_store.filter_documents(
+            {"field": "meta.number", "operator": "not in", "value": [9, 10]}
+        )
         self.assert_documents_are_equal(
             result,
-            [d for d in filterable_docs
-             if d.meta.get("number") not in [9, 10] and "number" in d.meta]
+            [
+                d
+                for d in filterable_docs
+                if d.meta.get("number") not in [9, 10] and "number" in d.meta
+            ],
         )
 
     def test_comparison_equal_with_dataframe(self, document_store, filterable_docs):
         document_store.write_documents(filterable_docs)
         with pytest.raises(FilterError):
             _ = document_store.filter_documents(
-                filters={"field": "dataframe", "operator": "==", "value": pd.DataFrame([1])}
+                filters={
+                    "field": "dataframe",
+                    "operator": "==",
+                    "value": pd.DataFrame([1]),
+                }
             )
 
     def test_comparison_not_equal_with_dataframe(self, document_store, filterable_docs):
         document_store.write_documents(filterable_docs)
         with pytest.raises(FilterError):
             _ = document_store.filter_documents(
-                filters={"field": "dataframe", "operator": "==", "value": pd.DataFrame([1])}
+                filters={
+                    "field": "dataframe",
+                    "operator": "==",
+                    "value": pd.DataFrame([1]),
+                }
             )
 
     # Pass these two tests as we now support iterables other than lists
-    def test_comparison_in_with_with_non_list_iterable(self, document_store, filterable_docs):
+    def test_comparison_in_with_with_non_list_iterable(
+        self, document_store, filterable_docs
+    ):
         pass
 
-    def test_comparison_not_in_with_with_non_list_iterable(self, document_store, filterable_docs):
+    def test_comparison_not_in_with_with_non_list_iterable(
+        self, document_store, filterable_docs
+    ):
         pass

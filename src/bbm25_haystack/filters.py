@@ -259,11 +259,7 @@ def _nin(dv: Any, fv: Any) -> bool:
     return not _in(dv, fv)
 
 
-LOGICAL_OPERATORS: Final = {
-    "NOT": _not,
-    "AND": _and,
-    "OR": _or
-}
+LOGICAL_OPERATORS: Final = {"NOT": _not, "AND": _and, "OR": _or}
 
 COMPARISON_OPERATORS: Final = {
     "==": _eq,
@@ -273,5 +269,5 @@ COMPARISON_OPERATORS: Final = {
     ">=": _gte,
     "<=": _lte,
     "in": _in,
-    "not in": _nin
+    "not in": _nin,
 }
