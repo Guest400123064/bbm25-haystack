@@ -43,7 +43,7 @@ The filtering logic is slightly different from the default implementation shippe
 - Comparison with `DataFrame` is always prohibited to reduce surprises.
 - No implicit `datetime` conversion from string values.
 
-These differences lead to a few caveats. Firstly, some test cases are overridden to take into account the different expectations. However, this means that passed tests may not be faithful, i.e., the filters behave in the same way as the old implementation while different behaviors are expected. Further, the negation logic needs to be considered again because `False` can now issue from both input check and the actual comparisons. But I think having input processing and comparisons separated makes the filtering behavior more transparent.
+These differences lead to a few caveats. Firstly, some test cases are overridden to take into account the different expectations. However, this means that passed, non-overridden tests may not be faithful, i.e., the filters behave in the same way as the old implementation while different behaviors are expected. Further, the negation logic needs to be considered again because `False` can now issue from both input check and the actual comparisons. But I think having input processing and comparisons separated makes the filtering behavior more transparent.
 
 ## License
 
