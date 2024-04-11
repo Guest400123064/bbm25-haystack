@@ -4,11 +4,11 @@
 from typing import Any, Optional
 
 from haystack import (
+    DeserializationError,
+    Document,
     component,
     default_from_dict,
     default_to_dict,
-    Document,
-    DeserializationError,
 )
 
 from bbm25_haystack.bbm25_store import BetterBM25DocumentStore

@@ -1,16 +1,15 @@
 # SPDX-FileCopyrightText: 2024-present Yuxuan Wang <wangy49@seas.upenn.edu>
 #
 # SPDX-License-Identifier: Apache-2.0
-from typing import Dict, Any
+from typing import Any
 
 import pytest
-
-from haystack import Pipeline, DeserializationError
-from haystack.testing.factory import document_store_class
+from haystack import DeserializationError, Pipeline
 from haystack.dataclasses import Document
+from haystack.testing.factory import document_store_class
 
-from bbm25_haystack.bbm25_store import BetterBM25DocumentStore
 from bbm25_haystack.bbm25_retriever import BetterBM25Retriever
+from bbm25_haystack.bbm25_store import BetterBM25DocumentStore
 
 
 @pytest.fixture()
@@ -32,9 +31,7 @@ class TestRetriever:
 
     def test_init_with_parameters(self):
         retriever = BetterBM25Retriever(
-            BetterBM25DocumentStore(),
-            filters={"name": "test.txt"},
-            top_k=5
+            BetterBM25DocumentStore(), filters={"name": "test.txt"}, top_k=5
         )
         assert retriever.filters == {"name": "test.txt"}
         assert retriever.top_k == 5
@@ -51,8 +48,10 @@ class TestRetriever:
             BetterBM25Retriever(BetterBM25DocumentStore(), filters="invalid")
 
     def test_to_dict(self):
-        MyFakeStore = document_store_class("MyFakeStore", bases=(BetterBM25DocumentStore,))
-        document_store = MyFakeStore()
+        store_class = document_store_class(
+            "MyFakeStore", bases=(BetterBM25DocumentStore,)
+        )
+        document_store = store_class()
         document_store.to_dict = lambda: {"type": "MyFakeStore", "init_parameters": {}}
         component = BetterBM25Retriever(document_store=document_store)
 
@@ -73,7 +72,7 @@ class TestRetriever:
         component = BetterBM25Retriever(
             document_store=BetterBM25DocumentStore(),
             filters={"name": "test.txt"},
-            top_k=5
+            top_k=5,
         )
         data = component.to_dict()
         assert data == {
@@ -104,18 +103,28 @@ class TestRetriever:
 
     def test_from_dict_without_docstore(self):
         data = {"type": "BetterBM25Retriever", "init_parameters": {}}
-        with pytest.raises(DeserializationError, match="Missing 'document_store' in serialization data"):
+        with pytest.raises(
+            DeserializationError, match="Missing 'document_store' in serialization data"
+        ):
             BetterBM25Retriever.from_dict(data)
 
     def test_from_dict_without_docstore_type(self):
-        data = {"type": "BetterBM25Retriever", "init_parameters": {"document_store": {"init_parameters": {}}}}
-        with pytest.raises(DeserializationError, match="Missing 'type' in document store's serialization data"):
+        data = {
+            "type": "BetterBM25Retriever",
+            "init_parameters": {"document_store": {"init_parameters": {}}},
+        }
+        with pytest.raises(
+            DeserializationError,
+            match="Missing 'type' in document store's serialization data",
+        ):
             BetterBM25Retriever.from_dict(data)
 
     def test_from_dict_nonexisting_docstore(self):
         data = {
             "type": "bbm25_haystack.BetterBM25Retriever",
-            "init_parameters": {"document_store": {"type": "Nonexisting.Docstore", "init_parameters": {}}},
+            "init_parameters": {
+                "document_store": {"type": "Nonexisting.Docstore", "init_parameters": {}}
+            },
         }
         with pytest.raises(DeserializationError):
             BetterBM25Retriever.from_dict(data)
@@ -132,9 +141,12 @@ class TestRetriever:
         assert result["documents"][0].content == "PHP is a popular programming language"
 
     def test_invalid_run_wrong_store_type(self):
-        SomeOtherDocumentStore = document_store_class("SomeOtherDocumentStore")
-        with pytest.raises(TypeError, match="document_store must be an instance of BetterBM25DocumentStore"):
-            BetterBM25Retriever(SomeOtherDocumentStore())
+        store_class = document_store_class("SomeOtherDocumentStore")
+        with pytest.raises(
+            TypeError,
+            match="document_store must be an instance of BetterBM25DocumentStore",
+        ):
+            BetterBM25Retriever(store_class())
 
     @pytest.mark.integration
     @pytest.mark.parametrize(
@@ -151,7 +163,7 @@ class TestRetriever:
 
         pipeline = Pipeline()
         pipeline.add_component("retriever", retriever)
-        result: Dict[str, Any] = pipeline.run(data={"retriever": {"query": query}})
+        result: dict[str, Any] = pipeline.run(data={"retriever": {"query": query}})
 
         assert result
         assert "retriever" in result
@@ -168,14 +180,18 @@ class TestRetriever:
             ("Ruby", "Ruby is a popular programming language", 3),
         ],
     )
-    def test_run_with_pipeline_and_top_k(self, mock_docs, query: str, query_result: str, top_k: int):
+    def test_run_with_pipeline_and_top_k(
+        self, mock_docs, query: str, query_result: str, top_k: int
+    ):
         ds = BetterBM25DocumentStore()
         ds.write_documents(mock_docs)
         retriever = BetterBM25Retriever(ds)
 
         pipeline = Pipeline()
         pipeline.add_component("retriever", retriever)
-        result: Dict[str, Any] = pipeline.run(data={"retriever": {"query": query, "top_k": top_k}})
+        result: dict[str, Any] = pipeline.run(
+            data={"retriever": {"query": query, "top_k": top_k}}
+        )
 
         assert result
         assert "retriever" in result
