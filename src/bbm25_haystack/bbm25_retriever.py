@@ -3,10 +3,41 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Any, Optional
 
-from haystack import component, default_from_dict, default_to_dict
-from haystack.dataclasses import Document
+from haystack import (
+    component,
+    default_from_dict,
+    default_to_dict,
+    Document,
+    DeserializationError,
+)
 
 from bbm25_haystack.bbm25_store import BetterBM25DocumentStore
+
+
+def _validate_search_params(filters: Optional[dict[str, Any]], top_k: int) -> None:
+    """
+    Validate the search parameters.
+
+    :param filters: A dictionary with filters to narrow down the search space
+        (default is None).
+    :type filters: Optional[dict[str, Any]]
+    :param top_k: The maximum number of documents to retrieve (default is 10).
+    :type top_k: int
+
+    :raises ValueError: If the specified top_k is not > 0.
+    :raises TypeError: If filters is not a dictionary.
+    """
+    if not isinstance(top_k, int):
+        msg = f"top_k must be an integer; got {type(top_k)} instead"
+        raise TypeError(msg)
+
+    if top_k <= 0:
+        msg = f"top_k must be > 0; got {top_k} instead"
+        raise ValueError(msg)
+
+    if filters is not None and (not isinstance(filters, dict)):
+        msg = f"filters must be a dictionary; got {type(filters)} instead"
+        raise TypeError(msg)
 
 
 @component
@@ -35,8 +66,14 @@ class BetterBM25Retriever:
 
         :raises ValueError: If the specified top_k is not > 0.
         """
+        _validate_search_params(filters, top_k)
+
         self.filters = filters
         self.top_k = top_k
+
+        if not isinstance(document_store, BetterBM25DocumentStore):
+            msg = "document_store must be an instance of BetterBM25DocumentStore"
+            raise TypeError(msg)
         self.document_store = document_store
 
     def run(
@@ -60,6 +97,8 @@ class BetterBM25Retriever:
         """
         filters = filters or self.filters
         top_k = top_k or self.top_k
+
+        _validate_search_params(filters, top_k)
 
         docs = self.document_store._retrieval(query, filters=filters, top_k=top_k)
         return {"documents": docs}
@@ -85,7 +124,15 @@ class BetterBM25Retriever:
         :param data: dictionary to deserialize from.
         :returns: deserialized component.
         """
-        doc_store_params = data["init_parameters"]["document_store"]
+        doc_store_params = data["init_parameters"].get("document_store")
+        if doc_store_params is None:
+            msg = "Missing 'document_store' in serialization data"
+            raise DeserializationError(msg)
+
+        if doc_store_params.get("type") is None:
+            msg = "Missing 'type' in document store's serialization data"
+            raise DeserializationError(msg)
+
         data["init_parameters"]["document_store"] = BetterBM25DocumentStore.from_dict(
             doc_store_params
         )
