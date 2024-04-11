@@ -10,10 +10,8 @@ An in-memory document store is a great starting point for prototyping and debugg
 
 ## Installation
 
-This package has not yet been published to PyPI. Please install the package directly from the `main` branch using:
-
 ```bash
-pip install git+https://github.com/Guest400123064/bbm25-haystack.git@main
+pip install bbm25-haystack
 ```
 
 ## Usage
