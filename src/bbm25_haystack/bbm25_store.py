@@ -2,28 +2,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 import heapq
-import logging
 import math
 import os
 from collections import Counter
 from typing import Any, Final, Optional, Union
 
-from haystack import Document, default_from_dict, default_to_dict
+from haystack import Document, default_from_dict, default_to_dict, logging
 from haystack.document_stores.errors import (
     DuplicateDocumentError,
     MissingDocumentError,
 )
 from haystack.document_stores.types import DuplicatePolicy
+from haystack.utils.filters import document_matches_filter
 from sentencepiece import SentencePieceProcessor  # type: ignore
 
 from bbm25_haystack.filters import apply_filters_to_document
 
 logger = logging.getLogger(__name__)
-
-
-DEFAULT_SP_MODEL: Final = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "default.model"
-)
 
 
 class BetterBM25DocumentStore:
@@ -32,6 +27,10 @@ class BetterBM25DocumentStore:
     store shipped with Haystack.
     """
 
+    default_sp_file: Final = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "default.model"
+    )
+
     def __init__(
         self,
         *,
@@ -39,7 +38,8 @@ class BetterBM25DocumentStore:
         b: float = 0.75,
         delta: float = 1.0,
         sp_file: Optional[str] = None,
-    ):
+        haystack_filter_logic: bool = False,
+    ) -> None:
         """
         Creates a new BetterBM25DocumentStore instance.
 
@@ -60,6 +60,9 @@ class BetterBM25DocumentStore:
         :type delta: float, optional
         :param sp_file: the SentencePiece model file to use for tokenization.
         :type sp_file: Optional[str], optional
+        :param haystack_filter_logic: Whether to use the Haystack filter logic
+            or the one implemented in this store, which is more conservative.
+        :type haystack_filter_logic: bool, optional
         """
         self.k = k
         self.b = b
@@ -71,12 +74,18 @@ class BetterBM25DocumentStore:
 
         self._sp_file = sp_file
         self._sp_inst = SentencePieceProcessor(
-            model_file=(self._sp_file or DEFAULT_SP_MODEL)
+            model_file=(self._sp_file or self.default_sp_file)
+        )
+
+        self._haystack_filter_logic = haystack_filter_logic
+        self._filter_func = (
+            document_matches_filter
+            if self._haystack_filter_logic
+            else apply_filters_to_document
         )
 
         self._avg_doc_len: float = 0.0
         self._freq_doc: Counter = Counter()
-
         self._index: dict[str, tuple[Document, dict[str, int], int]] = {}
 
     def _tokenize(self, texts: Union[str, list[str]]) -> list[list[str]]:
@@ -96,21 +105,6 @@ class BetterBM25DocumentStore:
             texts = [texts]
         return self._sp_inst.encode(texts, out_type=str)
 
-    def _compute_damping(self, doc_len: int) -> float:
-        """The damping factor within the term-frequency component.
-
-        This damping factor controls how document length shrinks
-        the increment of term frequency. The longer the document,
-        the less the term frequency can increase final matching score.
-
-        :param doc_len: the number of tokens in a document.
-        :type doc_len: int
-
-        :return: the damping factor.
-        :rtype: float
-        """
-        return self.k * (1 - self.b + self.b * doc_len / self._avg_doc_len)
-
     def _compute_idf(self, tokens: list[str]) -> dict[str, float]:
         """
         Calculate the inverse document frequency for each token.
@@ -121,14 +115,14 @@ class BetterBM25DocumentStore:
         :return: the IDF for each token.
         :rtype: dict[str, float]
         """
-        n = lambda t: self._freq_doc.get(t, 0)
+        cnt = lambda token: self._freq_doc.get(token, 0)
         idf = {
-            t: math.log(1 + (len(self._index) - n(t) + 0.5) / (n(t) + 0.5))
+            t: math.log(1 + (len(self._index) - cnt(t) + 0.5) / (cnt(t) + 0.5))
             for t in tokens
         }
         return idf
 
-    def _compute_all_bm25plus(
+    def _compute_bm25plus(
         self,
         idf: dict[str, float],
         documents: list[Document],
@@ -144,25 +138,22 @@ class BetterBM25DocumentStore:
         :return: the BM25+ scores for all documents.
         :rtype: list[tuple[Document, float]]
         """
+        sim = []
+        for doc in documents:
+            _, freq, doc_len = self._index[doc.id]
+            doc_len_scaled = doc_len / self._avg_doc_len
 
-        def bm25(token: str, freq: dict[str, int], doc_len: int) -> float:
-            """
-            Complete BM25+ formula for a single token.
-            """
-            damp = self._compute_damping(doc_len)  # Repeated compute here
-            freq_term = freq.get(token, 0.0)
-            freq_norm = freq_term / (freq_term + damp) + self.delta
-            return idf[token] * freq_norm
+            scr = 0.0
+            for token, idf_val in idf.items():
+                freq_term = freq.get(token, 0.0)
+                freq_damp = self.k * (1 + self.b * (doc_len_scaled - 1))
 
-        store = {doc.id: self._index[doc.id] for doc in documents}
-        scores = [
-            (
-                doc,
-                sum(bm25(token, freq, doc_len) for token in idf.keys()),
-            )
-            for doc, freq, doc_len in store.values()
-        ]
-        return scores
+                tf_val = freq_term / (freq_term + freq_damp) + self.delta
+                scr += idf_val * tf_val
+
+            sim.append((doc, scr))
+
+        return sim
 
     def _retrieval(
         self,
@@ -181,30 +172,28 @@ class BetterBM25DocumentStore:
         :param top_k: the number of documents to return.
         :type top_k: int
 
-        :return: the top-k documents that match the query.
-        :rtype: list[Document]
+        :return: the top-k documents and corresponding sim score.
+        :rtype: list[tuple[Document, float]]
         """
         documents = self.filter_documents(filters)
         if not documents:
             return []
 
         idf = self._compute_idf(self._tokenize(query)[0])
-        sim = self._compute_all_bm25plus(idf, documents)
+        sim = self._compute_bm25plus(idf, documents)
 
-        key = lambda x: x[1]
         if top_k is None:
-            top = sorted(sim, key=key, reverse=True)
-        else:
-            top = heapq.nlargest(top_k, sim, key=key)
-
-        return next(zip(*top))  # type: ignore
+            return sorted(sim, key=lambda x: x[1], reverse=True)
+        return heapq.nlargest(top_k, sim, key=lambda x: x[1])
 
     def count_documents(self) -> int:
         """
         Returns how many documents are present in the document store.
 
-        :return: the number of documents in the store.
-        :rtype: int
+        :return:
+            The number of documents in the store.
+        :rtype:
+            int
         """
         return len(self._index)
 
@@ -221,9 +210,7 @@ class BetterBM25DocumentStore:
         :rtype: list[Document]
         """
         return [
-            doc
-            for doc, _, _ in self._index.values()
-            if apply_filters_to_document(filters, doc)
+            doc for doc, _, _ in self._index.values() if self._filter_func(filters, doc)
         ]
 
     def write_documents(
@@ -324,6 +311,7 @@ class BetterBM25DocumentStore:
             b=self.b,
             delta=self.delta,
             sp_file=self._sp_file,
+            haystack_filter_logic=self._haystack_filter_logic,
         )
 
     @classmethod

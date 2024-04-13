@@ -72,7 +72,7 @@ class TestDocumentStore(DocumentStoreBaseTests):
         results = document_store._retrieval(query="What languages?", top_k=1)
 
         assert len(results) == 1
-        assert results[0].content == "Haystack supports multiple languages"
+        assert results[0][0].content == "Haystack supports multiple languages"
 
     # Override a few filter test cases to account for new comparison logic
     # Specifically, we alter the expected behavior when comparison involves

@@ -100,8 +100,8 @@ class BetterBM25Retriever:
 
         _validate_search_params(filters, top_k)
 
-        docs = self.document_store._retrieval(query, filters=filters, top_k=top_k)
-        return {"documents": docs}
+        sim = self.document_store._retrieval(query, filters=filters, top_k=top_k)
+        return {"documents": next(zip(*sim))}
 
     def to_dict(self) -> dict[str, Any]:
         """
