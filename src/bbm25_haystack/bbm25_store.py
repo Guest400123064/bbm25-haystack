@@ -190,10 +190,8 @@ class BetterBM25DocumentStore:
         """
         Returns how many documents are present in the document store.
 
-        :return:
-            The number of documents in the store.
-        :rtype:
-            int
+        :return: the number of documents in the store.
+        :rtype: int
         """
         return len(self._index)
 
