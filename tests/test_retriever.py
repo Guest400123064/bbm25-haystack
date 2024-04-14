@@ -52,14 +52,20 @@ class TestRetriever:
             "MyFakeStore", bases=(BetterBM25DocumentStore,)
         )
         document_store = store_class()
-        document_store.to_dict = lambda: {"type": "MyFakeStore", "init_parameters": {}}
+        document_store.to_dict = lambda: {
+            "type": "MyFakeStore",
+            "init_parameters": {},
+        }
         component = BetterBM25Retriever(document_store=document_store)
 
         data = component.to_dict()
         assert data == {
             "type": "bbm25_haystack.bbm25_retriever.BetterBM25Retriever",
             "init_parameters": {
-                "document_store": {"type": "MyFakeStore", "init_parameters": {}},
+                "document_store": {
+                    "type": "MyFakeStore",
+                    "init_parameters": {},
+                },
                 "filters": None,
                 "top_k": 10,
             },
@@ -104,7 +110,8 @@ class TestRetriever:
     def test_from_dict_without_docstore(self):
         data = {"type": "BetterBM25Retriever", "init_parameters": {}}
         with pytest.raises(
-            DeserializationError, match="Missing 'document_store' in serialization data"
+            DeserializationError,
+            match="Missing 'document_store' in serialization data",
         ):
             BetterBM25Retriever.from_dict(data)
 
@@ -123,7 +130,10 @@ class TestRetriever:
         data = {
             "type": "bbm25_haystack.BetterBM25Retriever",
             "init_parameters": {
-                "document_store": {"type": "Nonexisting.Docstore", "init_parameters": {}}
+                "document_store": {
+                    "type": "Nonexisting.Docstore",
+                    "init_parameters": {},
+                }
             },
         }
         with pytest.raises(DeserializationError):
@@ -138,7 +148,9 @@ class TestRetriever:
 
         assert "documents" in result
         assert len(result["documents"]) == 5
-        assert result["documents"][0].content == "PHP is a popular programming language"
+        assert (
+            result["documents"][0].content == "PHP is a popular programming language"
+        )
 
     def test_invalid_run_wrong_store_type(self):
         store_class = document_store_class("SomeOtherDocumentStore")

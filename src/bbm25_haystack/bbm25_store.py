@@ -38,19 +38,21 @@ class BetterBM25DocumentStore:
         b: float = 0.75,
         delta: float = 1.0,
         sp_file: Optional[str] = None,
-        haystack_filter_logic: bool = False,
+        haystack_filter_logic: bool = True,
     ) -> None:
         """
         Creates a new BetterBM25DocumentStore instance.
 
-        An in-memory document store intended to improve the default BM25 document
-        store shipped with Haystack. The default store recompute the index for the
-        entire document store for every in-coming query, which is significantly
-        inefficient. This store aims to improve the efficiency by pre-computing
-        the index for all documents in the store and only do incremental updates
-        when new documents are added or removed. Further, it leverages a
-        SentencePiece model to tokenize the input text to allow more flexible
-        and dynamic tokenization adapted to domain-specific text.
+        An in-memory document store intended to improve the default
+        BM25 document store shipped with Haystack. The default store
+        recompute the index for the entire document store for every
+        in-coming query, which is significantly inefficient. This
+        store aims to improve the efficiency by pre-computing the
+        index for all documents in the store and only do incremental
+        updates when new documents are added or removed. Further, it
+        leverages a SentencePiece model to tokenize the input text
+        to allow more flexible and dynamic tokenization adapted to
+        domain-specific text.
 
         :param k: the k1 parameter in BM25+ formula.
         :type k: float, optional
@@ -58,10 +60,12 @@ class BetterBM25DocumentStore:
         :type b: float, optional
         :param delta: the delta parameter in BM25+ formula.
         :type delta: float, optional
-        :param sp_file: the SentencePiece model file to use for tokenization.
+        :param sp_file: the SentencePiece model file to use for
+            tokenization.
         :type sp_file: Optional[str], optional
-        :param haystack_filter_logic: Whether to use the Haystack filter logic
-            or the one implemented in this store, which is more conservative.
+        :param haystack_filter_logic: Whether to use the Haystack
+            filter logic or the one implemented in this store,
+            which is more conservative.
         :type haystack_filter_logic: bool, optional
         """
         self.k = k
@@ -161,7 +165,7 @@ class BetterBM25DocumentStore:
         *,
         filters: Optional[dict[str, Any]] = None,
         top_k: Optional[int] = None,
-    ) -> list[Document]:
+    ) -> list[tuple[Document, float]]:
         """
         Retrieve documents from the store using the given query.
 
@@ -207,8 +211,12 @@ class BetterBM25DocumentStore:
         :return: the list of documents that match the given filters.
         :rtype: list[Document]
         """
+        if filters is None or not filters:
+            return [doc for doc, _, _ in self._index.values()]
         return [
-            doc for doc, _, _ in self._index.values() if self._filter_func(filters, doc)
+            doc
+            for doc, _, _ in self._index.values()
+            if self._filter_func(filters, doc)
         ]
 
     def write_documents(
@@ -221,15 +229,15 @@ class BetterBM25DocumentStore:
 
         :param documents: a list of documents.
         :type documents: list[Document]
-        :param policy: documents with the same ID count as duplicates. When
-            duplicates are met, the store can:
+        :param policy: documents with the same ID count as duplicates.
+            When duplicates are met, the store can:
              - skip: keep the existing document and ignore the new one.
              - overwrite: remove the old document and write the new one.
              - fail: an error is raised
         :type policy: DuplicatePolicy, optional
 
-        :raises DuplicateDocumentError: Exception trigger on duplicate document if
-            `policy=DuplicatePolicy.FAIL`
+        :raises DuplicateDocumentError: Exception trigger on duplicate
+            document if `policy=DuplicatePolicy.FAIL`
 
         :return: Number of documents written.
         :rtype: int
@@ -257,9 +265,9 @@ class BetterBM25DocumentStore:
 
             self._index[doc.id] = (doc, Counter(tokens), len(tokens))
             self._freq_doc.update(set(tokens))
-            self._avg_doc_len = (len(tokens) + self._avg_doc_len * len(self._index)) / (
-                len(self._index) + 1
-            )
+            self._avg_doc_len = (
+                len(tokens) + self._avg_doc_len * len(self._index)
+            ) / (len(self._index) + 1)
 
             logger.debug(f"Document '{doc.id}' written to store.")
             n_written += 1
@@ -268,15 +276,15 @@ class BetterBM25DocumentStore:
 
     def delete_documents(self, document_ids: list[str]) -> int:
         """
-        Deletes all documents with a matching document_ids from the document store.
+        Deletes all documents with a matching document_ids.
 
-        Fails with `MissingDocumentError` if no document with this id is present in
-        the store.
+        Fails with `MissingDocumentError` if no document with
+        this id is present in the store.
 
         :param object_ids: the object_ids to delete
         :type object_ids: list[str]
 
-        :raises MissingDocumentError: Exception trigger on missing document.
+        :raises MissingDocumentError: trigger on missing document.
 
         :return: Number of documents deleted.
         :rtype: int

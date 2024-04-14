@@ -16,7 +16,7 @@ pip install bbm25-haystack
 
 ## Usage
 
-The initializer takes [three BM25+ hyperparameters](https://en.wikipedia.org/wiki/Okapi_BM25), namely `k1`, `b`, and `delta`, and one path to a trained SentencePiece tokenizer `.model` file. All parameters are optional. The default tokenizer is directly copied from [this SentencePiece test tokenizer](https://github.com/google/sentencepiece/blob/master/python/test/test_model.model) with a vocab size of 1000.
+The initializer takes [three BM25+ hyperparameters](https://en.wikipedia.org/wiki/Okapi_BM25), namely `k1`, `b`, and `delta`, one path to a trained SentencePiece tokenizer `.model` file, and a filtering logic flag ([see below](#filtering-logic)). All parameters are optional. The default tokenizer is directly copied from [LLaMA-2-7B-32K tokenizer](https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/tokenizer.model) with a vocab size of 32,000.
 
 ```python
 from haystack import Document
@@ -34,9 +34,11 @@ retriever = BetterBM25Retriever(document_store)
 retriever.run(query="How many languages are spoken around the world today?")
 ```
 
-## Filtering Logic and Caveats
+## Filtering Logic
 
-The filtering logic is slightly different from the default implementation shipped with Haystack, but this logic may be subject to changes, and I am open to different suggestions. Please find comments and implementation details in [`filters.py`](./src/bbm25_haystack/filters.py). TL;DR:
+The current document store uses `document_matches_filter` shipped with Haystack to perform filtering by default, which is the same as `InMemoryDocumentStore` except that it is DOES NOT support legacy operator names.
+
+However, there is also an alternative filtering logic shipped with this implementation that is more conservative (and unstable at this point). To use this alternative logic, initialize the document store with `haystack_filter_logic=False` Please find comments and implementation details in [`filters.py`](./src/bbm25_haystack/filters.py). TL;DR:
 
 - Comparison with `None`, i.e., missing values, involved will always return `False`, no matter the document attribute value or filter value.
 - Comparison with `DataFrame` is always prohibited to reduce surprises.

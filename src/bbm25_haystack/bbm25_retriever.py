@@ -56,12 +56,14 @@ class BetterBM25Retriever:
         """
         Create an BetterBM25Retriever component.
 
-        :param document_store: A Document Store object used to retrieve documents
+        :param document_store: A Document Store object used to
+            retrieve documents
         :type document_store: BetterBM25DocumentStore
-        :param filters: A dictionary with filters to narrow down the search space
-            (default is None).
+        :param filters: A dictionary with filters to narrow down the
+            search space (default is None).
         :type filters: Optional[dict[str, Any]]
-        :param top_k: The maximum number of documents to retrieve (default is 10).
+        :param top_k: The maximum number of documents to retrieve
+            (default is 10).
         :type top_k: int
 
         :raises ValueError: If the specified top_k is not > 0.
@@ -88,10 +90,11 @@ class BetterBM25Retriever:
 
         :param query: The query to run the Retriever on.
         :type query: str
-        :param filters: A dictionary with filters to narrow down the search space
-            (default is None).
+        :param filters: A dictionary with filters to narrow
+            down the search space (default is None).
         :type filters: Optional[dict[str, Any]]
-        :param top_k: The maximum number of documents to retrieve (default is None).
+        :param top_k: The maximum number of documents to
+            retrieve (default is None).
 
         :return: The retrieved documents.
         """
@@ -133,7 +136,7 @@ class BetterBM25Retriever:
             msg = "Missing 'type' in document store's serialization data"
             raise DeserializationError(msg)
 
-        data["init_parameters"]["document_store"] = BetterBM25DocumentStore.from_dict(
-            doc_store_params
+        data["init_parameters"]["document_store"] = (
+            BetterBM25DocumentStore.from_dict(doc_store_params)
         )
         return default_from_dict(cls, data)

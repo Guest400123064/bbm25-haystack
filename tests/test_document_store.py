@@ -28,6 +28,10 @@ class TestDocumentStore(DocumentStoreBaseTests):
     def document_store(self) -> BetterBM25DocumentStore:
         return BetterBM25DocumentStore()
 
+    @pytest.fixture
+    def document_store_bbm25_filter(self) -> BetterBM25DocumentStore:
+        return BetterBM25DocumentStore(haystack_filter_logic=False)
+
     def test_write_documents(self, document_store: DocumentStore):
         docs = [Document(id="1")]
         assert document_store.write_documents(docs) == 1
@@ -77,25 +81,32 @@ class TestDocumentStore(DocumentStoreBaseTests):
     # Override a few filter test cases to account for new comparison logic
     # Specifically, we alter the expected behavior when comparison involves
     # None, DataFrame, and Iterables.
-    def test_comparison_equal_with_none(self, document_store, filterable_docs):
-        document_store.write_documents(filterable_docs)
-        result = document_store.filter_documents(
+    def test_comparison_equal_with_none_bbm25_filter(
+        self, document_store_bbm25_filter, filterable_docs
+    ):
+        document_store_bbm25_filter.write_documents(filterable_docs)
+        result = document_store_bbm25_filter.filter_documents(
             filters={"field": "meta.number", "operator": "==", "value": None}
         )
         self.assert_documents_are_equal(result, [])
 
-    def test_comparison_not_equal_with_none(self, document_store, filterable_docs):
-        document_store.write_documents(filterable_docs)
-        result = document_store.filter_documents(
+    def test_comparison_not_equal_with_none_bbm25_filter(
+        self, document_store_bbm25_filter, filterable_docs
+    ):
+        document_store_bbm25_filter.write_documents(filterable_docs)
+        result = document_store_bbm25_filter.filter_documents(
             filters={"field": "meta.number", "operator": "!=", "value": None}
         )
         self.assert_documents_are_equal(result, [])
 
-    def test_comparison_not_equal(self, document_store, filterable_docs):
-        """Comparison with missing values will always return False. So the ground
-        truth is that we should only return documents with a non-missing value."""
-        document_store.write_documents(filterable_docs)
-        result = document_store.filter_documents(
+    def test_comparison_not_equal_bbm25_filter(
+        self, document_store_bbm25_filter, filterable_docs
+    ):
+        """Comparison with missing values will always return False.
+        So the ground truth is that we should only return documents
+        with a non-missing value."""
+        document_store_bbm25_filter.write_documents(filterable_docs)
+        result = document_store_bbm25_filter.filter_documents(
             {"field": "meta.number", "operator": "!=", "value": 100}
         )
         self.assert_documents_are_equal(
@@ -107,10 +118,12 @@ class TestDocumentStore(DocumentStoreBaseTests):
             ],
         )
 
-    def test_comparison_not_in(self, document_store, filterable_docs):
+    def test_comparison_not_in_bbm25_filter(
+        self, document_store_bbm25_filter, filterable_docs
+    ):
         """Similar to the test above."""
-        document_store.write_documents(filterable_docs)
-        result = document_store.filter_documents(
+        document_store_bbm25_filter.write_documents(filterable_docs)
+        result = document_store_bbm25_filter.filter_documents(
             {"field": "meta.number", "operator": "not in", "value": [9, 10]}
         )
         self.assert_documents_are_equal(
@@ -122,10 +135,12 @@ class TestDocumentStore(DocumentStoreBaseTests):
             ],
         )
 
-    def test_comparison_equal_with_dataframe(self, document_store, filterable_docs):
-        document_store.write_documents(filterable_docs)
+    def test_comparison_equal_with_dataframe_bbm25_filter(
+        self, document_store_bbm25_filter, filterable_docs
+    ):
+        document_store_bbm25_filter.write_documents(filterable_docs)
         with pytest.raises(FilterError):
-            _ = document_store.filter_documents(
+            _ = document_store_bbm25_filter.filter_documents(
                 filters={
                     "field": "dataframe",
                     "operator": "==",
@@ -133,24 +148,15 @@ class TestDocumentStore(DocumentStoreBaseTests):
                 }
             )
 
-    def test_comparison_not_equal_with_dataframe(self, document_store, filterable_docs):
-        document_store.write_documents(filterable_docs)
+    def test_comparison_not_equal_with_dataframe_bbm25_filter(
+        self, document_store_bbm25_filter, filterable_docs
+    ):
+        document_store_bbm25_filter.write_documents(filterable_docs)
         with pytest.raises(FilterError):
-            _ = document_store.filter_documents(
+            _ = document_store_bbm25_filter.filter_documents(
                 filters={
                     "field": "dataframe",
                     "operator": "==",
                     "value": pd.DataFrame([1]),
                 }
             )
-
-    # Pass these two tests as we now support iterables other than lists
-    def test_comparison_in_with_with_non_list_iterable(
-        self, document_store, filterable_docs
-    ):
-        pass
-
-    def test_comparison_not_in_with_with_non_list_iterable(
-        self, document_store, filterable_docs
-    ):
-        pass

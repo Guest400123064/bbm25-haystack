@@ -101,7 +101,9 @@ def _and(document: Document, conditions: list[dict[str, Any]]) -> bool:
     :return: True if not all conditions are met.
     :rtype: bool
     """
-    return all(_run_comparison_condition(condition, document) for condition in conditions)
+    return all(
+        _run_comparison_condition(condition, document) for condition in conditions
+    )
 
 
 def _or(document: Document, conditions: list[dict[str, Any]]) -> bool:

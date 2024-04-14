@@ -85,12 +85,12 @@ allow-direct-references = true
 
 [tool.black]
 target-version = ["py39"]
-line-length = 90
+line-length = 85
 skip-string-normalization = true
 
 [tool.ruff]
 target-version = "py39"
-line-length = 90
+line-length = 85
 select = [
   "A",
   "ARG",
