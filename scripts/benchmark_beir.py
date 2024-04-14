@@ -65,20 +65,17 @@ class BEIRWrapper(BaseSearch):
         self._store = store
         self._indexed = False
 
-    def index(self, corpus: dict[str, dict[str, str]]) -> int:
+    def index(self, corpus: dict[str, dict[str, str]]) -> None:
         """Index the corpus for retrieval."""
 
-        documents = []
         for idx, raw in tqdm.tqdm(corpus.items(), desc="Indexing corpus"):
             raw_title = raw.get("title", "")
             raw_text = raw.get("text", "")
 
             content = f"title: {raw_title}; text: {raw_text}"
             document = Document(idx, content=content)
-            documents.append(document)
-
+            self._store.write_documents([document])
         self._indexed = True
-        return self._store.write_documents(documents)
 
     def search(
         self,

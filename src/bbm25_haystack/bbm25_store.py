@@ -315,7 +315,7 @@ class BetterBM25DocumentStore:
             self,
             k=self.k,
             b=self.b,
-            delta=self.delta,
+            delta=self.delta * (self.k + 1.0),  # Because we scaled it on init
             sp_file=self._sp_file,
             haystack_filter_logic=self._haystack_filter_logic,
         )
