@@ -11,7 +11,15 @@ An in-memory document store is a great starting point for prototyping and debugg
 ## Installation
 
 ```bash
-pip install bbm25-haystack
+$ pip install bbm25-haystack
+```
+
+Alternatively, you can clone the repository and build from source to be able to reflect changes to the source code:
+
+```bash
+$ git clone https://github.com/Guest400123064/bbm25-haystack.git
+$ cd bbm25-haystack
+$ pip install -e .
 ```
 
 ## Usage
@@ -45,6 +53,28 @@ However, there is also an alternative filtering logic shipped with this implemen
 - No implicit `datetime` conversion from string values.
 
 These differences lead to a few caveats. Firstly, some test cases are overridden to take into account the different expectations. However, this means that passed, non-overridden tests may not be faithful, i.e., the filters behave in the same way as the old implementation while different behaviors are expected. Further, the negation logic needs to be considered again because `False` can now issue from both input check and the actual comparisons. But I think having input processing and comparisons separated makes the filtering behavior more transparent.
+
+## Search Quality Evaluation
+
+This repo has [a simple script](./scripts/benchmark_beir.py) to help evaluate the search quality over [BEIR](https://github.com/beir-cellar/beir/tree/main) benchmark. You need to clone the repository (you can also manually download the script and place it under a folder named `scripts`) and you have to install additional dependencies to run the script.
+
+```bash
+$ pip install beir
+```
+
+To run the script, you may want to specify the dataset name and BM25 hyperparameters. For example:
+
+```bash
+$ python scripts/benchmark_beir.py --datasets scifact arguana --bm25-k1 1.2 --output eval.csv
+```
+
+It automatically downloads the benchmarking dataset to `benchmarks/beir`, where `benchmarks` is at the same level as `scripts`. You may also check the help page for more information.
+
+```bash
+$ python scripts/benchmark_beir.py --help
+```
+
+New benchmarking scripts are expected to be added in the future.
 
 ## License
 
