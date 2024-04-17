@@ -53,7 +53,7 @@ class BetterBM25Retriever:
         filters: Optional[dict[str, Any]] = None,
         top_k: int = 10,
         set_score: bool = True,
-    ):
+    ) -> None:
         """
         Create an BetterBM25Retriever component.
 
@@ -66,7 +66,7 @@ class BetterBM25Retriever:
         :param top_k: The maximum number of documents to retrieve
             (default is 10).
         :type top_k: int
-        :param set_score: Whether to set the similarity scores 
+        :param set_score: Whether to set the similarity scores
             to retrieved documents (default is True).
         :type set_score: bool
 
