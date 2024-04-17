@@ -68,6 +68,7 @@ class TestRetriever:
                 },
                 "filters": None,
                 "top_k": 10,
+                "set_score": True,
             },
         }
 
@@ -79,6 +80,7 @@ class TestRetriever:
             document_store=BetterBM25DocumentStore(),
             filters={"name": "test.txt"},
             top_k=5,
+            set_score=False,
         )
         data = component.to_dict()
         assert data == {
@@ -87,6 +89,7 @@ class TestRetriever:
                 "document_store": serialized_ds,
                 "filters": {"name": "test.txt"},
                 "top_k": 5,
+                "set_score": False,
             },
         }
 
