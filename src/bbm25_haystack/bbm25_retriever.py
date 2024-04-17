@@ -52,6 +52,7 @@ class BetterBM25Retriever:
         *,
         filters: Optional[dict[str, Any]] = None,
         top_k: int = 10,
+        set_score: bool = True,
     ):
         """
         Create an BetterBM25Retriever component.
@@ -65,6 +66,9 @@ class BetterBM25Retriever:
         :param top_k: The maximum number of documents to retrieve
             (default is 10).
         :type top_k: int
+        :param set_score: Whether to set the similarity scores 
+            to retrieved documents (default is True).
+        :type set_score: bool
 
         :raises ValueError: If the specified top_k is not > 0.
         """
@@ -72,12 +76,14 @@ class BetterBM25Retriever:
 
         self.filters = filters
         self.top_k = top_k
+        self.set_score = set_score
 
         if not isinstance(document_store, BetterBM25DocumentStore):
             msg = "document_store must be an instance of BetterBM25DocumentStore"
             raise TypeError(msg)
         self.document_store = document_store
 
+    @component.output_types(documents=list[Document])
     def run(
         self,
         query: str,
@@ -87,6 +93,9 @@ class BetterBM25Retriever:
     ) -> dict[str, list[Document]]:
         """
         Run the Retriever on the given query.
+
+        This method always return copies of the documents
+        retrieved from the document store.
 
         :param query: The query to run the Retriever on.
         :type query: str
@@ -104,7 +113,15 @@ class BetterBM25Retriever:
         _validate_search_params(filters, top_k)
 
         sim = self.document_store._retrieval(query, filters=filters, top_k=top_k)
-        return {"documents": next(zip(*sim))}  # type: ignore
+
+        ret = []
+        for doc, score in sim:
+            data = doc.to_dict()
+            if self.set_score:
+                data["score"] = score
+            ret.append(Document.from_dict(data))
+
+        return {"documents": ret}
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -117,6 +134,7 @@ class BetterBM25Retriever:
             filters=self.filters,
             top_k=self.top_k,
             document_store=self.document_store.to_dict(),
+            set_score=self.set_score,
         )
 
     @classmethod
