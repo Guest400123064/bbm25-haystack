@@ -62,7 +62,7 @@ class BetterBM25DocumentStore:
         b: float = 0.75,
         delta: float = 1.0,
         sp_file: Optional[str] = None,
-        n_grams: Union[int, tuple[int, int]] = 2,
+        n_grams: Union[int, tuple[int, int]] = 1,
         haystack_filter_logic: bool = True,
     ) -> None:
         """
