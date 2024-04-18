@@ -115,10 +115,10 @@ class BetterBM25Retriever:
         sim = self.document_store._retrieval(query, filters=filters, top_k=top_k)
 
         ret = []
-        for doc, score in sim:
+        for doc, scr in sim:
             data = doc.to_dict()
             if self.set_score:
-                data["score"] = score
+                data["score"] = scr
             ret.append(Document.from_dict(data))
 
         return {"documents": ret}
