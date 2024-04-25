@@ -146,6 +146,7 @@ def evaluate_retriever(args: argparse.Namespace) -> None:
             b=args.bm25_b,
             delta=args.bm25_delta,
             sp_file=args.sp_file,
+            n_grams=args.n_grams,
         )
         model = BEIRWrapper(store)
         retriever = EvaluateRetrieval(model)
@@ -220,6 +221,13 @@ def get_args() -> argparse.Namespace:
         default=None,
         required=False,
         help="Path to the SentencePiece model file; default to None (LLaMA2)",
+    )
+    parser.add_argument(
+        "--n-grams",
+        type=int,
+        default=1,
+        required=False,
+        help="The n-gram size up to n for tokenizations; default to 1",
     )
     parser.add_argument(
         "--split",
