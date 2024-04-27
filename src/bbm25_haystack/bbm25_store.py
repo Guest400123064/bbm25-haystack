@@ -26,15 +26,17 @@ logger = logging.getLogger(__name__)
 
 def _n_grams(seq: Iterable[str], n: int):
     """
-    Returns a sliding window (of width n) over data from the iterable.
+    Returns a sliding window (of width n) over data from the
+    iterable. This solution is adapted from the StackOverflow
+    answer [here](https://stackoverflow.com/a/6822773/13403958).
 
-    :param seq: the input token sequence.
-    :type seq: Iterable[str]
-    :param n: the window size.
-    :type n: int
+    :param seq: Input token sequence.
+    :type seq: ``Iterable[str]``
+    :param n: Window size.
+    :type n: ``int``
 
-    :return: the n-gram window generator.
-    :rtype: Generator[tuple[str], None, None]
+    :return: The n-gram window generator.
+    :rtype: ``Generator[tuple[str], None, None]``
     """
     it = iter(seq)
     wd = deque((next(it, None) for _ in range(n)), maxlen=n)
@@ -47,13 +49,14 @@ def _n_grams(seq: Iterable[str], n: int):
 
 class BetterBM25DocumentStore:
     """
-    An in-memory document store intended to improve the default BM25 document
-    store shipped with Haystack.
+    An in-memory BM25 document store intended to improve the default
+    ``InMemoryDocumentStore`` shipped with Haystack.
     """
 
     default_sp_file: Final = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "default.model"
     )
+    """@private"""
 
     def __init__(
         self,
@@ -66,42 +69,39 @@ class BetterBM25DocumentStore:
         haystack_filter_logic: bool = True,
     ) -> None:
         """
-        Creates a new BetterBM25DocumentStore instance.
+        Creates a new ``BetterBM25DocumentStore`` instance.
 
-        An in-memory document store intended to improve the default
-        BM25 document store shipped with Haystack. The default store
-        recompute the index for the entire document store for every
-        in-coming query, which is significantly inefficient. This
-        store aims to improve the efficiency by pre-computing the
-        index for all documents in the store and only do incremental
-        updates when new documents are added or removed. Further, it
-        leverages a SentencePiece model to tokenize the input text
-        to allow more flexible and dynamic tokenization adapted to
-        domain-specific text.
-
-        :param k: the k1 parameter in BM25+ formula.
-        :type k: float, optional
-        :param b: the b parameter in BM25+ formula.
-        :type b: float, optional
-        :param delta: the delta parameter in BM25+ formula.
-        :type delta: float, optional
-        :param sp_file: the SentencePiece model file to use for
-            tokenization.
-        :type sp_file: Optional[str], optional
-        :param n_grams: the n-gram window size.
-        :type n_grams: Optional[Union[int, tuple[int, int]]], optional
-        :param haystack_filter_logic: Whether to use the Haystack
-            filter logic or the one implemented in this store,
-            which is more conservative.
-        :type haystack_filter_logic: bool, optional
+        :param k: k1 parameter in BM25+ formula.
+        :type k: ``Optional[float]``
+        :param b: b parameter in BM25+ formula.
+        :type b: ``Optional[float]``
+        :param delta: delta parameter in BM25+ formula.
+        :type delta: ``Optional[float]``
+        :param sp_file: ``SentencePiece`` tokenizer ``.model`` file to
+            use. A default from LLaMA-2-32K is used if not provided.
+        :type sp_file: ``Optional[str]``
+        :param n_grams: The n-gram window size. Can be a range of n-grams
+            to include in text representation. If a single integer is
+            provided, it will be treated as the maximum n-gram window size,
+            which is equivalent to ``(1, n_grams)``.
+        :type n_grams: ``Optional[Union[int, tuple[int, int]]]``
+        :param haystack_filter_logic: Whether to use the Haystack filter
+            logic or the one implemented in this store.
+        :type haystack_filter_logic: ``Optional[bool]``
         """
         self.k = k
-        self.b = b
+        """@private"""
 
-        # Adjust the delta value so that we can bring the `(k1 + 1)`
-        # term out of the 'term frequency' term in BM25+ formula and
-        # delete it; this will not affect the ranking
+        self.b = b
+        """@private"""
+
         self.delta = delta / (self.k + 1.0)
+        """@private
+
+        Adjust the delta value so that we can bring the ``(k1 + 1)``
+        term out of the 'term frequency' term in BM25+ formula and
+        delete it; this will not affect the ranking.
+        """
 
         self._parse_sp_file(sp_file=sp_file)
         self._parse_n_grams(n_grams=n_grams)
@@ -169,11 +169,11 @@ class BetterBM25DocumentStore:
         such as a single user query or a group of raw document. The tokenized
         text will be augmented into set of n-grams based.
 
-        :param texts: the input text to tokenize.
-        :type texts: Union[str, list[str]]
+        :param texts: Input text to tokenize, queries or documents.
+        :type texts: ``Union[str, list[str]]``
 
-        :return: the tokenized text, with n-grams augmented.
-        :rtype: list[list[tuple[str]]]
+        :return: Tokenized and n-gram augmented texts.
+        :rtype: ``list[list[tuple[str]]]``
         """
 
         def _augment_to_n_grams(tokens: list[str]) -> list[tuple[str]]:
@@ -198,17 +198,19 @@ class BetterBM25DocumentStore:
         """
         Calculate the BM25+ score for all documents in this index.
 
-        :param query: the query to calculate the BM25+ score for.
-        :type query: str
-        :param documents: the pool of documents to calculate the BM25+ score for.
-        :type documents: list[Document]
+        :param query: Query to calculate the BM25+ score for.
+        :type query: ``str``
+        :param documents: Filtered pool of documents retrieve from.
+        :type documents: ``list[Document]``
 
-        :return: the BM25+ scores for all documents.
-        :rtype: list[tuple[Document, float]]
+        :return: Documents and corresponding BM25+ scores.
+        :rtype: ``list[tuple[Document, float]]``
         """
         cnt = lambda ng: self._freq_doc.get(ng, 0)
         idf = {
-            ng: math.log(1 + (len(self._index) - cnt(ng) + 0.5) / (cnt(ng) + 0.5))
+            ng: math.log(
+                1 + (self.count_documents() - cnt(ng) + 0.5) / (cnt(ng) + 0.5)
+            )
             for ng in self._tokenize(query)[0]
         }
 
@@ -239,15 +241,15 @@ class BetterBM25DocumentStore:
         """
         Retrieve documents from the store using the given query.
 
-        :param query: the query to search for.
-        :type query: str
-        :param filters: the filters to apply to the document list.
-        :type filters: Optional[dict[str, Any]]
-        :param top_k: the number of documents to return.
-        :type top_k: int
+        :param query: Query to search for.
+        :type query: ``str``
+        :param filters: Filters to apply to the document list.
+        :type filters: ``Optional[dict[str, Any]]``
+        :param top_k: Number of documents to return.
+        :type top_k: ``int``
 
-        :return: the top-k documents and corresponding sim score.
-        :rtype: list[tuple[Document, float]]
+        :return: Top ``k`` documents and corresponding BM25+ scores.
+        :rtype: ``list[tuple[Document, float]]``
         """
         documents = self.filter_documents(filters)
         if not documents:
@@ -260,12 +262,12 @@ class BetterBM25DocumentStore:
 
     def count_documents(self) -> int:
         """
-        Returns how many documents are present in the document store.
+        Returns how many documents are present in this store.
 
-        :return: the number of documents in the store.
-        :rtype: int
+        :return: Number of documents in the store.
+        :rtype: ``int``
         """
-        return len(self._index)
+        return len(self._index.keys())
 
     def filter_documents(
         self, filters: Optional[dict[str, Any]] = None
@@ -273,11 +275,11 @@ class BetterBM25DocumentStore:
         """
         Filter documents in the store using the given filters.
 
-        :param filters: the filters to apply to the document list.
-        :type filters: Optional[dict[str, Any]]
+        :param filters: Filters to apply to the document list.
+        :type filters: ``Optional[dict[str, Any]]``
 
-        :return: the list of documents that match the given filters.
-        :rtype: list[Document]
+        :return: List of documents that match the given filters.
+        :rtype: ``list[Document]``
         """
         if filters is None or not filters:
             return [doc for doc, _, _ in self._index.values()]
@@ -290,26 +292,34 @@ class BetterBM25DocumentStore:
     def write_documents(
         self,
         documents: list[Document],
-        policy: DuplicatePolicy = DuplicatePolicy.FAIL,
+        policy: DuplicatePolicy = DuplicatePolicy.NONE,
     ) -> int:
         """
         Writes (or overwrites) documents into the store.
 
-        :param documents: a list of documents.
-        :type documents: list[Document]
-        :param policy: documents with the same ID count as duplicates.
-            When duplicates are met, the store can:
-             - skip: keep the existing document and ignore the new one.
-             - overwrite: remove the old document and write the new one.
-             - fail: an error is raised
-        :type policy: DuplicatePolicy, optional
+        :param documents: List of documents to write.
+        :type documents: ``list[Document]``
+        :param policy: Documents with the same ``Document.id`` count as
+            duplicates. When duplicates are met, the store can:
+             - ``SKIP``: keep the existing document and ignore the new one.
+             - ``OVERWRITE``: remove the old document and write the new one.
+             - ``FAIL``: an error is raised (default behavior if not specified)
+        :type policy: ``Optional[DuplicatePolicy]``
 
+        :raises ValueError: Exception trigger on invalid duplicate policy.
         :raises DuplicateDocumentError: Exception trigger on duplicate
-            document if `policy=DuplicatePolicy.FAIL`
+            document if ``policy=DuplicatePolicy.FAIL``
 
         :return: Number of documents written.
-        :rtype: int
+        :rtype: ``int``
         """
+        if policy not in DuplicatePolicy:
+            msg = f"Invalid duplicate policy: {policy}."
+            raise ValueError(msg)
+
+        if policy == DuplicatePolicy.NONE:
+            policy = DuplicatePolicy.FAIL
+
         n_written = 0
         for doc in documents:
             if not isinstance(doc, Document):
@@ -338,8 +348,8 @@ class BetterBM25DocumentStore:
             self._index[doc.id] = (doc, Counter(tokens), len(tokens))
             self._freq_doc.update(set(tokens))
             self._avg_doc_len = (
-                len(tokens) + self._avg_doc_len * len(self._index)
-            ) / (len(self._index) + 1)
+                len(tokens) + self._avg_doc_len * self.count_documents()
+            ) / (self.count_documents() + 1)
 
             logger.debug(f"Document '{doc.id}' written to store.")
             n_written += 1
@@ -348,18 +358,15 @@ class BetterBM25DocumentStore:
 
     def delete_documents(self, document_ids: list[str]) -> int:
         """
-        Deletes all documents with a matching document_ids.
+        Deletes all documents with a matching ID.
 
-        Fails with `MissingDocumentError` if no document with
-        this id is present in the store.
+        :param document_ids: List of ``object_id`` to delete
+        :type document_ids: ``list[str]``
 
-        :param object_ids: the object_ids to delete
-        :type object_ids: list[str]
-
-        :raises MissingDocumentError: trigger on missing document.
+        :raises MissingDocumentError: Triggered on document not found.
 
         :return: Number of documents deleted.
-        :rtype: int
+        :rtype: ``int``
         """
         n_removal = 0
         for doc_id in document_ids:
@@ -368,8 +375,8 @@ class BetterBM25DocumentStore:
                 self._freq_doc.subtract(Counter(freq.keys()))
                 try:
                     self._avg_doc_len = (
-                        self._avg_doc_len * (len(self._index) + 1) - doc_len
-                    ) / len(self._index)
+                        self._avg_doc_len * (self.count_documents() + 1) - doc_len
+                    ) / self.count_documents()
                 except ZeroDivisionError:
                     self._avg_doc_len = 0
 

@@ -46,19 +46,27 @@ retriever.run(query="How many languages are spoken around the world today?")
 
 ### API References
 
-The initializer takes [three BM25+ hyperparameters](https://en.wikipedia.org/wiki/Okapi_BM25), namely `k1`, `b`, and `delta`, and path to a trained SentencePiece tokenizer `.model` file. All parameters are optional. The default tokenizer is directly copied from [LLaMA-2-7B-32K tokenizer](https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/tokenizer.model) with a vocab size of 32,000.
+You can find the full API references [here](https://guest400123064.github.io/bbm25-haystack/). In a hurry? Below are some most important document store parameters you might want explore:
+
+- `k, b, delta` - the [three BM25+ hyperparameters](https://en.wikipedia.org/wiki/Okapi_BM25).
+- `sp_file` - a path to a trained SentencePiece tokenizer `.model` file. The default tokenizer is directly copied from [LLaMA-2-7B-32K tokenizer](https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/tokenizer.model) with a vocab size of 32,000.
+- `n_grams` - default to 1, which means text (both query and document) are tokenized into unigrams. If set to 2, the tokenizer also augment the list of uni-grams with bi-grams, and so on. If specified as tuple, e.g., (2, 3), the tokenizer only produce bi-grams and tri-grams, without any uni-gram.
+- `haystack_filter_logic` - see [below](#filtering-logic).
+
+The retriever parameters are largely the same as [`InMemoryBM25Retriever`](https://docs.haystack.deepset.ai/docs/inmemorybm25retriever).
 
 ## Filtering Logic
 
-The current document store uses `document_matches_filter` shipped with Haystack to perform filtering by default, which is the same as `InMemoryDocumentStore` except that it is DOES NOT support legacy operator names.
+The current document store uses [`document_matches_filter`](https://github.com/deepset-ai/haystack/blob/main/haystack/utils/filters.py) shipped with Haystack to perform filtering by default, which is the same as [`InMemoryDocumentStore`](https://docs.haystack.deepset.ai/docs/inmemorydocumentstore).
 
-However, there is also an alternative filtering logic shipped with this implementation that is more conservative (and unstable at this point). To use this alternative logic, initialize the document store with `haystack_filter_logic=False` Please find comments and implementation details in [`filters.py`](./src/bbm25_haystack/filters.py). TL;DR:
+However, there is also an alternative filtering logic shipped with this implementation (unstable at this point). To use this alternative logic, initialize the document store with `haystack_filter_logic=False`. Please find comments and implementation details in [`filters.py`](./src/bbm25_haystack/filters.py). TL;DR:
 
-- Comparison with `None`, i.e., missing values, involved will always return `False`, no matter the document attribute value or filter value.
-- Comparison with `DataFrame` is always prohibited to reduce surprises.
+- Comparison with `None`, i.e., missing values, involved will always return `False`, no matter missing the document attribute value or missing the filter value.
+- Comparison with `pandas.DataFrame` is always prohibited to reduce surprises.
 - No implicit `datetime` conversion from string values.
+- `in` and `not in` allows any `Iterable` as filter value, without the `list` constraint.
 
-These differences lead to a few caveats. Firstly, some test cases are overridden to take into account the different expectations. However, this means that passed, non-overridden tests may not be faithful, i.e., the filters behave in the same way as the old implementation while different behaviors are expected. Further, the negation logic needs to be considered again because `False` can now issue from both input check and the actual comparisons. But I think having input processing and comparisons separated makes the filtering behavior more transparent.
+In this case, the negation logic needs to be considered again because `False` can now issue from both input nullity check and the actual comparisons. For instance, `in` and `not in` both yield non-matching upon missing values. But I think having input processing and comparisons separated makes the filtering behavior more transparent.
 
 ## Search Quality Evaluation
 
@@ -71,7 +79,7 @@ $ pip install beir
 To run the script, you may want to specify the dataset name and BM25 hyperparameters. For example:
 
 ```bash
-$ python scripts/benchmark_beir.py --datasets scifact arguana --bm25-k1 1.2 --output eval.csv
+$ python scripts/benchmark_beir.py --datasets scifact arguana --bm25-k1 1.2 --n-grams 2 --output eval.csv
 ```
 
 It automatically downloads the benchmarking dataset to `benchmarks/beir`, where `benchmarks` is at the same level as `scripts`. You may also check the help page for more information.

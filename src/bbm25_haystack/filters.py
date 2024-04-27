@@ -14,15 +14,25 @@ def apply_filters_to_document(
     filters: Optional[dict[str, Any]], document: Document
 ) -> bool:
     """
-    Apply filters to a document.
+    Apply filters to a document. Differences with the official
+    Haystack implementation:
+
+    - Comparison with ``None``, i.e., missing values, involved will
+        always return ``False``, no matter missing the document
+        attribute value or missing the filter value.
+    - Comparison with ``pandas.DataFrame`` is always prohibited to
+        reduce surprises.
+    - No implicit ``datetime`` conversion from string values.
+    - ``in`` and ``not in`` allows any ``Iterable`` as filter value,
+        without the ``list`` constraint.
 
     :param filters: The filters to apply to the document.
-    :type filters: dict[str, Any]
+    :type filters: ``dict[str, Any]``
     :param document: The document to apply the filters to.
-    :type document: Document
+    :type document: ``Document``
 
-    :return: True if the document passes the filters.
-    :rtype: bool
+    :return: ``True`` if the document passes the filters.
+    :rtype: ``bool``
     """
     if filters is None or not filters:
         return True
