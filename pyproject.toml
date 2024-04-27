@@ -5,27 +5,27 @@ build-backend = "hatchling.build"
 [project]
 name = "bbm25-haystack"
 dynamic = ["version"]
-description = 'Haystack 2.x In-memory Document Store with Enhanced Efficiency'
+description = 'Haystack 2.x In-memory BM25 Document Store with Enhanced Efficiency'
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
 keywords = ["Document Search", "BM25", "LLM Agent", "RAG", "Haystack"]
 authors = [
-  { name = "Yuxuan Wang", email = "wangy49@seas.upenn.edu" },
+  { name = "Guest400123064", email = "wangy49@seas.upenn.edu" },
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
   "haystack-ai",
   "sentencepiece",
-  "typing_extensions",
 ]
 
 [project.urls]
@@ -41,6 +41,7 @@ dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
   "pytest-cov",
+  "hypothesis",
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
@@ -55,7 +56,7 @@ cov = [
 ]
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.9", "3.10", "3.11"]
+python = ["3.9", "3.10", "3.11", "3.12"]
 
 [tool.hatch.envs.lint]
 detached = true
