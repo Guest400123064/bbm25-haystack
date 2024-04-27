@@ -159,7 +159,7 @@ class TestRetriever:
         store_class = document_store_class("SomeOtherDocumentStore")
         with pytest.raises(
             TypeError,
-            match="document_store must be an instance of BetterBM25DocumentStore",
+            match="'document_store' must be an instance of 'BetterBM25DocumentStore'",
         ):
             BetterBM25Retriever(store_class())
 
