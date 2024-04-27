@@ -89,7 +89,7 @@ class BetterBM25Retriever:
         """@private"""
 
         if not isinstance(document_store, BetterBM25DocumentStore):
-            msg = "'document_store' must of type 'BetterBM25DocumentStore'"
+            msg = "'document_store' must be of type 'BetterBM25DocumentStore'"
             raise TypeError(msg)
 
         self.document_store = document_store
