@@ -24,7 +24,9 @@ $ pip install -e .
 
 ## Usage
 
-The initializer takes [three BM25+ hyperparameters](https://en.wikipedia.org/wiki/Okapi_BM25), namely `k1`, `b`, and `delta`, one path to a trained SentencePiece tokenizer `.model` file, and a filtering logic flag ([see below](#filtering-logic)). All parameters are optional. The default tokenizer is directly copied from [LLaMA-2-7B-32K tokenizer](https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/tokenizer.model) with a vocab size of 32,000.
+### Quick Start
+
+Below is an example of how you can build a minimal search engine with the `bbm25_haystack` components on their own. They are also compatible with [Haystack pipelines](https://docs.haystack.deepset.ai/docs/creating-pipelines).
 
 ```python
 from haystack import Document
@@ -35,12 +37,16 @@ document_store = BetterBM25DocumentStore()
 document_store.write_documents([
    Document(content="There are over 7,000 languages spoken around the world today."),
    Document(content="Elephants have been observed to behave in a way that indicates a high level of self-awareness, such as recognizing themselves in mirrors."),
-   Document(content="In certain parts of the world, like the Maldives, Puerto Rico, and San Diego, you can witness the phenomenon of bioluminescent waves.")
+   Document(content="In certain parts of the world, like the Maldives, Puerto Rico, and San Diego, you can witness the phenomenon of bio-luminescent waves.")
 ])
 
 retriever = BetterBM25Retriever(document_store)
 retriever.run(query="How many languages are spoken around the world today?")
 ```
+
+### API References
+
+The initializer takes [three BM25+ hyperparameters](https://en.wikipedia.org/wiki/Okapi_BM25), namely `k1`, `b`, and `delta`, and path to a trained SentencePiece tokenizer `.model` file. All parameters are optional. The default tokenizer is directly copied from [LLaMA-2-7B-32K tokenizer](https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/tokenizer.model) with a vocab size of 32,000.
 
 ## Filtering Logic
 
