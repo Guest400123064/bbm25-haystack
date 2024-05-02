@@ -105,9 +105,11 @@ class BetterBM25Retriever:
         :type query: ``str``
         :param filters: Haystack filters, a dictionary with filters to
             narrow down the search space. The filters are applied
-            **before** similarity retrieval.
+            **before** similarity retrieval. Use the value provided during
+            initialization if not specified.
         :type filters: ``Optional[dict[str, Any]]``
-        :param top_k: The maximum number of documents to return.
+        :param top_k: The maximum number of documents to return. Use the
+            value provided during initialization if not specified.
         :type top_k: ``Optional[int]``
 
         :return: The retrieved documents in a dictionary with key "documents".
