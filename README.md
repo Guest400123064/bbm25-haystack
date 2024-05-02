@@ -50,7 +50,7 @@ You can find the full API references [here](https://guest400123064.github.io/bbm
 
 - `k, b, delta` - the [three BM25+ hyperparameters](https://en.wikipedia.org/wiki/Okapi_BM25).
 - `sp_file` - a path to a trained SentencePiece tokenizer `.model` file. The default tokenizer is directly copied from [LLaMA-2-7B-32K tokenizer](https://huggingface.co/togethercomputer/LLaMA-2-7B-32K/blob/main/tokenizer.model) with a vocab size of 32,000.
-- `n_grams` - default to 1, which means text (both query and document) are tokenized into unigrams. If set to 2, the tokenizer also augment the list of uni-grams with bi-grams, and so on. If specified as tuple, e.g., (2, 3), the tokenizer only produce bi-grams and tri-grams, without any uni-gram.
+- `n_grams` - default to 1, which means text (both query and document) are tokenized into uni-grams. If set to 2, the tokenizer also augment the list of uni-grams with bi-grams, and so on. If specified as tuple, e.g., (2, 3), the tokenizer only produce bi-grams and tri-grams, without any uni-gram.
 - `haystack_filter_logic` - see [below](#filtering-logic).
 
 The retriever parameters are largely the same as [`InMemoryBM25Retriever`](https://docs.haystack.deepset.ai/docs/inmemorybm25retriever).
