@@ -53,10 +53,9 @@ class BetterBM25DocumentStore:
     ``InMemoryDocumentStore`` shipped with Haystack.
     """
 
-    default_sp_file: Final = os.path.join(
+    _default_sp_file: Final = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "default.model"
     )
-    """@private"""
 
     def __init__(
         self,
@@ -89,19 +88,13 @@ class BetterBM25DocumentStore:
             logic or the one implemented in this store.
         :type haystack_filter_logic: ``Optional[bool]``
         """
-        self.k = k
-        """@private"""
+        self._k = k
+        self._b = b
 
-        self.b = b
-        """@private"""
-
-        self.delta = delta / (self.k + 1.0)
-        """@private
-
-        Adjust the delta value so that we can bring the ``(k1 + 1)``
-        term out of the 'term frequency' term in BM25+ formula and
-        delete it; this will not affect the ranking.
-        """
+        # Adjust the delta value so that we can bring the ``(k1 + 1)``
+        # term out of the 'term frequency' term in BM25+ formula and
+        # delete it; this will not affect the ranking.
+        self._delta = delta / (self._k + 1.0)
 
         self._parse_sp_file(sp_file=sp_file)
         self._parse_n_grams(n_grams=n_grams)
@@ -121,16 +114,16 @@ class BetterBM25DocumentStore:
         self._sp_file = sp_file
 
         if sp_file is None:
-            self._sp_inst = SentencePieceProcessor(model_file=self.default_sp_file)
+            self._sp_inst = SentencePieceProcessor(model_file=self._default_sp_file)
             return
 
         if not os.path.exists(sp_file) or not os.path.isfile(sp_file):
             msg = (
                 f"Tokenizer model file '{sp_file}' not accessible; "
-                f"fallback to default {self.default_sp_file}."
+                f"fallback to default {self._default_sp_file}."
             )
             logger.warn(msg)
-            self._sp_inst = SentencePieceProcessor(model_file=self.default_sp_file)
+            self._sp_inst = SentencePieceProcessor(model_file=self._default_sp_file)
             return
 
         try:
@@ -138,10 +131,10 @@ class BetterBM25DocumentStore:
         except Exception as exc:
             msg = (
                 f"Failed to load tokenizer model file '{sp_file}': {exc}; "
-                f"fallback to default {self.default_sp_file}."
+                f"fallback to default {self._default_sp_file}."
             )
             logger.error(msg)
-            self._sp_inst = SentencePieceProcessor(model_file=self.default_sp_file)
+            self._sp_inst = SentencePieceProcessor(model_file=self._default_sp_file)
 
     def _parse_n_grams(self, n_grams: Optional[Union[int, tuple[int, int]]]) -> None:
         self._n_grams = n_grams
@@ -222,9 +215,9 @@ class BetterBM25DocumentStore:
             scr = 0.0
             for token, idf_val in idf.items():
                 freq_term = freq.get(token, 0.0)
-                freq_damp = self.k * (1 + self.b * (doc_len_scaled - 1))
+                freq_damp = self._k * (1 + self._b * (doc_len_scaled - 1))
 
-                tf_val = freq_term / (freq_term + freq_damp) + self.delta
+                tf_val = freq_term / (freq_term + freq_damp) + self._delta
                 scr += idf_val * tf_val
 
             sim.append((doc, scr))
@@ -392,9 +385,9 @@ class BetterBM25DocumentStore:
         """Serializes this store to a dictionary."""
         return default_to_dict(
             self,
-            k=self.k,
-            b=self.b,
-            delta=self.delta * (self.k + 1.0),  # Because we scaled it on init
+            k=self._k,
+            b=self._b,
+            delta=self._delta * (self._k + 1.0),  # Because we scaled it on init
             sp_file=self._sp_file,
             n_grams=self._n_grams,
             haystack_filter_logic=self._haystack_filter_logic,

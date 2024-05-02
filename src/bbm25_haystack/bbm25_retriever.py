@@ -29,15 +29,15 @@ def _validate_search_params(filters: Optional[dict[str, Any]], top_k: int) -> No
     :raises TypeError: If filters is not a dictionary.
     """
     if not isinstance(top_k, int):
-        msg = f"top_k must be an integer; got {type(top_k)} instead."
+        msg = f"'top_k' must be an integer; got '{type(top_k)}' instead."
         raise TypeError(msg)
 
     if top_k <= 0:
-        msg = f"top_k must be > 0; got {top_k} instead."
+        msg = f"'top_k' must be > 0; got '{top_k}' instead."
         raise ValueError(msg)
 
     if filters is not None and (not isinstance(filters, dict)):
-        msg = f"filters must be a dictionary; got {type(filters)} instead."
+        msg = f"'filters' must be a dictionary; got '{type(filters)}' instead."
         raise TypeError(msg)
 
 
@@ -80,20 +80,14 @@ class BetterBM25Retriever:
         _validate_search_params(filters, top_k)
 
         self.filters = filters
-        """@private"""
-
         self.top_k = top_k
-        """@private"""
-
         self.set_score = set_score
-        """@private"""
 
         if not isinstance(document_store, BetterBM25DocumentStore):
             msg = "'document_store' must be of type 'BetterBM25DocumentStore'"
             raise TypeError(msg)
 
         self.document_store = document_store
-        """@private"""
 
     @component.output_types(documents=list[Document])
     def run(
