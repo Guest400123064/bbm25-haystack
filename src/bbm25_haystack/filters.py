@@ -25,6 +25,12 @@ def apply_filters_to_document(
     - No implicit ``datetime`` conversion from string values.
     - ``in`` and ``not in`` allows any ``Iterable`` as filter value,
         without the ``list`` constraint.
+    - Allowing custom comparison functions for more flexibility. Note
+        that the custom comparison function inputs are NEVER checked,
+        i.e., no missing value check, no ``DataFrame`` check, etc. User
+        should ensure the input values are valid and return value is
+        always a boolean. The inputs are always supplied in the order
+        of document value and then filter value.
 
     :param filters: The filters to apply to the document.
     :type filters: ``dict[str, Any]``
@@ -44,17 +50,17 @@ def _get_document_field(document: Document, field: str) -> Optional[Any]:
     Get the value of a field in a document.
 
     If the field is not found within the document then, instead of
-    raising an error, `None` is returned. Note that here we do not
-    implicitly add 'meta' prefix for fields that are not a direct
+    raising an error, ``None`` is returned. Note that here we do not
+    implicitly add ``'meta'`` prefix for fields that are not a direct
     attribute of the document, not supporting legacy behavior anymore.
 
     :param document: The document to get the field value from.
-    :type document: Document
+    :type document: ``Document``
     :param field: The field to get the value of.
-    :type field: str
+    :type field: ``str``
 
     :return: The value of the field in the document.
-    :rtype: Optional[Any]
+    :rtype: ``Optional[Any]``
     """
     if "." not in field:
         return getattr(document, field)
@@ -94,7 +100,12 @@ def _run_comparison_condition(condition: dict[str, Any], document: Document) -> 
 
     field: str = condition["field"]
     value: Any = condition["value"]
-    comparator = COMPARISON_OPERATORS[condition["operator"]]
+
+    # TODO: We may want to check if the supplied comparator is valid
+    if callable(condition["operator"]):
+        comparator = condition["operator"]
+    else:
+        comparator = COMPARISON_OPERATORS[condition["operator"]]
 
     return comparator(_get_document_field(document, field), value)
 
@@ -106,10 +117,10 @@ def _and(document: Document, conditions: list[dict[str, Any]]) -> bool:
     :param document: The document to check the conditions against.
     :type document: Document
     :param conditions: The conditions to check against the document.
-    :type conditions: list[dict[str, Any]]
+    :type conditions: ``list[dict[str, Any]]``
 
     :return: True if not all conditions are met.
-    :rtype: bool
+    :rtype: ``bool``
     """
     return all(
         _run_comparison_condition(condition, document) for condition in conditions
@@ -123,10 +134,10 @@ def _or(document: Document, conditions: list[dict[str, Any]]) -> bool:
     :param document: The document to check the conditions against.
     :type document: Document
     :param conditions: The conditions to check against the document.
-    :type conditions: list[dict[str, Any]]
+    :type conditions: ``list[dict[str, Any]]``
 
     :return: True if not all conditions are met.
-    :rtype: bool
+    :rtype: ``bool``
     """
     return any(_run_comparison_condition(cond, document) for cond in conditions)
 
@@ -142,12 +153,12 @@ def _not(document: Document, conditions: list[dict[str, Any]]) -> bool:
     implementation of Haystack (the 'at least one False' semantics).
 
     :param document: The document to check the conditions against.
-    :type document: Document
+    :type document: ``Document``
     :param conditions: The conditions to check against the document.
-    :type conditions: list[dict[str, Any]]
+    :type conditions: ``list[dict[str, Any]]``
 
     :return: True if not all conditions are met.
-    :rtype: bool
+    :rtype: ``bool``
     """
     return not _and(document, conditions)
 
@@ -164,10 +175,10 @@ def _check_comparator_inputs(
     function is only called if the input values are valid.
 
     :param comparator: The comparator function to wrap.
-    :type comparator: Callable[[Any, Any], bool]
+    :type comparator: ``Callable[[Any, Any], bool]``
 
     :return: The wrapped comparator function.
-    :rtype: Callable[[Any, Any], bool]
+    :rtype: ``Callable[[Any, Any], bool]``
     """
 
     @wraps(comparator)
