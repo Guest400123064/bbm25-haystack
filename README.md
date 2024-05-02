@@ -65,6 +65,7 @@ However, there is also an alternative filtering logic shipped with this implemen
 - Comparison with `pandas.DataFrame` is always prohibited to reduce surprises.
 - No implicit `datetime` conversion from string values.
 - `in` and `not in` allows any `Iterable` as filter value, without the `list` constraint.
+- Allowing custom comparison functions for more flexibility. Note that the custom comparison function inputs are NEVER checked, i.e., no missing value check, no ``DataFrame`` check, etc. User should ensure the input values are valid and return value is always a boolean. The inputs are always supplied in the order of document value and then filter value.
 
 In this case, the negation logic needs to be considered again because `False` can now issue from both input nullity check and the actual comparisons. For instance, `in` and `not in` both yield non-matching upon missing values. But I think having input processing and comparisons separated makes the filtering behavior more transparent.
 
